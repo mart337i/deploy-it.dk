@@ -23,7 +23,6 @@ class Configuration:
         self.commands_dir = commands_dir
         self.debug = 1 if debug == 1 else 0;
         self.config = {}
-        self.reload()
         self.template_dirs = [templates_dir] + self.discover_template_dirs()
     
     def load_config(self, config_file):

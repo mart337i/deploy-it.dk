@@ -107,17 +107,13 @@ class API:
                         Depends(dependency=log_request_info),
                     )
                 )
-                if configuration.debug:
-                    rich.print(f"[green]Registered router from module: {module_name} and dependency {module.dependency}[/green]")
+                rich.print(f"[green]Registered router from module: {module_name} and dependency {module.dependency}[/green]")
         except ModuleNotFoundError as e:
-            if configuration.debug:
-                rich.print(f"[red]Module not found: {module_name}, error: {e}[/red]")
+            rich.print(f"[red]Module not found: {module_name}, error: {e}[/red]")
         except AttributeError as e:
-            if configuration.debug:
-                rich.print(f"[red]Module '{module_name}' does not have 'router' attribute, error: {e}[/red]")
+            rich.print(f"[red]Module '{module_name}' does not have 'router' attribute, error: {e}[/red]")
         except Exception as e:
-            if configuration.debug:
-                rich.print(f"[red]Module '{module_name}' failed with the following error: {e}[/red]")
+            rich.print(f"[red]Module '{module_name}' failed with the following error: {e}[/red]")
 
     def register_routes(self,app : FastAPI):
         """
