@@ -63,17 +63,6 @@ class proxmox:
         return self._proxmoxer.nodes(node).qemu.create(**config)
     
     def create_vm_pre_config(self, node: str, sshkeys: str, config: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Create a VM with pre-configuration settings including cloud-init.
-        
-        Args:
-            node: Node name
-            sshkeys: SSH public keys to authorize
-            config: VM configuration parameters
-            
-        Returns:
-            Dictionary with task ID and VM ID
-        """
         config = config.get('config', {})
 
         if not config.get('vmid'):

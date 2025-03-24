@@ -1,0 +1,8 @@
+Ubuntu-24.04:
+  commands:
+    - apt update
+    - apt upgrade -y
+    - apt dist-upgrade -y
+    - apt autoremove -y
+    - apt autoclean
+  description: Complete update workflow for Debian/Ubuntu systems

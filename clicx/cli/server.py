@@ -86,12 +86,16 @@ class API:
         Should be called only after all routes have been added.
         """
         route_names = set()
+        route_prefix = set()
         for route in app.routes:
             if isinstance(route, APIRoute):
                 if route.name in route_names:
                     raise Exception(f"Route function names {[route.name]} should be unique")
+                if route.path in route_prefix:
+                    raise Exception(f"Route prefix {[route.path]} should be unique")
                 route.operation_id = route.name
                 route_names.add(route.name)
+                route_prefix.add(route.path)
 
     def include_router_from_module(self,app : FastAPI, module_name: str):
         """

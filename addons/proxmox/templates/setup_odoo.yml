@@ -1,0 +1,89 @@
+# Odoo Setup Commands
+# This file includes commands for installing and configuring Odoo
+
+SetUpOdoo_Ubuntu-24.04:
+  commands:
+    # Update system
+    - apt update
+    - apt upgrade -y
+    
+    # Install dependencies
+    - apt install -y postgresql 
+    - apt install -y python3-pip
+    - apt install -y python3-dev
+    - apt install -y python3-venv
+    - apt install -y build-essential
+    - apt install -y libxml2-dev
+    - apt install -y libxslt1-dev
+    - apt install -y libldap2-dev
+    - apt install -y libsasl2-dev
+    - apt install -y libssl-dev
+    - apt install -y libffi-dev
+    - apt install -y libjpeg-dev
+    - apt install -y libpq-dev
+    - apt install -y nodejs
+    - apt install -y npm
+    - apt install -y git
+    - apt install -y wget
+    
+    # Create Odoo user
+    - adduser --system --quiet --shell=/bin/bash --home=/opt/odoo --gecos 'ODOO' --group odoo
+    
+    # Setup PostgreSQL for Odoo
+    - sudo -u postgres createuser -s odoo
+    - sudo -u postgres createdb odoo
+    
+    # Get Odoo (using Odoo 17 as example)
+    - su - odoo -c "git clone --depth 1 --branch 17.0 https://www.github.com/odoo/odoo /opt/odoo/odoo-server"
+    
+    # Install Python requirements
+    - su - odoo -c "cd /opt/odoo && python3 -m venv odoo-venv"
+    - su - odoo -c "source /opt/odoo/odoo-venv/bin/activate && pip3 install wheel setuptools"
+    - su - odoo -c "source /opt/odoo/odoo-venv/bin/activate && pip3 install -r /opt/odoo/odoo-server/requirements.txt"
+    
+    # Create Odoo configuration file
+    - mkdir -p /etc/odoo
+    - cp /opt/odoo/odoo-server/debian/odoo.conf /etc/odoo/odoo.conf
+    - chown odoo:odoo /etc/odoo/odoo.conf
+    - mkdir -p /var/log/odoo
+    - chown odoo:odoo /var/log/odoo
+    
+    # Update Odoo config with correct paths and settings
+    - |-
+      cat > /etc/odoo/odoo.conf << EOF
+      [options]
+      ; This is the password that allows database operations:
+      admin_passwd = admin_password_change_me
+      db_host = False
+      db_port = False
+      db_user = odoo
+      db_password = False
+      addons_path = /opt/odoo/odoo-server/addons
+      logfile = /var/log/odoo/odoo-server.log
+      EOF
+    
+    # Setup Odoo service
+    - |-
+      cat > /etc/systemd/system/odoo.service << EOF
+      [Unit]
+      Description=Odoo Open Source ERP and CRM
+      After=network.target postgresql.service
+      
+      [Service]
+      Type=simple
+      SyslogIdentifier=odoo
+      User=odoo
+      Group=odoo
+      ExecStart=/opt/odoo/odoo-venv/bin/python3 /opt/odoo/odoo-server/odoo-bin -c /etc/odoo/odoo.conf
+      StandardOutput=journal+console
+      
+      [Install]
+      WantedBy=multi-user.target
+      EOF
+    
+    # Reload systemd, enable and start Odoo
+    - systemctl daemon-reload
+    - systemctl enable odoo
+    - systemctl start odoo
+    
+  description: Complete setup for Odoo 17 on Ubuntu 24.04

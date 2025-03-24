@@ -27,6 +27,7 @@ fastapi = {extras = ["standard"], version = "^0.115.11"}
 urllib3 = "^2.3.0"
 psutil = "^7.0.0"
 proxmoxer = "^2.2.0"
+cryptography = "^44.0.2"
 
 
 [build-system]
