@@ -1,7 +1,7 @@
 import secrets
 import string
 
-def _generate_secure_password(self, length: int = 12) -> str:
+def _generate_password(self, length: int = 12) -> str:
     """
     Generate a secure random password.
     

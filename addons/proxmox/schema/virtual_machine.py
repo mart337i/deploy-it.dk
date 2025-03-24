@@ -43,6 +43,7 @@ class VirtualMachineCI(BaseModel):
                     "scsi0": "local:0,import-from=/var/lib/vz/template/iso/jammy-server-cloudimg-amd64-disk-kvm.img",
                     "ide2": "local:cloudinit",
                     "boot": "order=scsi0;ide2",
+                    "disk_size": "20G",
                     "serial0": "socket",
                     "vga": "serial0",
                     "ipconfig0": "ip=dhcp",

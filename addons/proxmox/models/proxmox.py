@@ -1,13 +1,14 @@
 from typing import Dict, Any, List, Optional, Union
 from proxmoxer import ProxmoxAPI
 from proxmoxer.core import ResourceException
+from clicx.utils.security import _generate_password
 import time
 
 import logging
 _logger = logging.getLogger("proxmox")
 
 #######################
-# Class Definition and Initialization
+# MARK: Class Definition and Initialization
 #######################
 
 class proxmox:
@@ -46,7 +47,7 @@ class proxmox:
         return self._proxmoxer
     
 #######################
-# VM Creation and Configuration
+# MARK: VM Creation and Configuration
 #######################
     def create_vm(self, node: str, config: Dict[str, Any]) -> str:
         """
@@ -81,19 +82,19 @@ class proxmox:
 
         # Generate a secure password if not provided
         if not config.get('cipassword'):
-            config['cipassword'] = self._generate_secure_password()
+            config['cipassword'] = _generate_password()
             _logger.info(f"Generated secure password for VM {config.get('vmid')}")
 
-        # Create VM
-        # NOTE: It's very important that sshkeys are placed after the ciuser
-        # because if placed under cicustom it will be set on the root user
-        # as cicustom is executed as root. It would therefore set ssh keys for root instead of the user.
         default_values = {
             'name': f"vm-{vm_id}",
         }
         
         # Merge defaults with provided config
         vm_params = {**default_values, **config}
+
+        # NOTE: It's very important that sshkeys are placed after the ciuser
+        # because if placed under cicustom it will be set on the root user
+        # as cicustom is executed as root. It would therefore set ssh keys for root instead of the user.
         vm_params['sshkeys'] = sshkeys
         
         vm = self._proxmoxer.nodes(node).qemu.create(
@@ -102,17 +103,30 @@ class proxmox:
         )
         _logger.debug(f"VM creation task: {vm} for VM ID: {vm_id}")
 
-        try:
-            self.await_task_completion(node, vm)
-        except Exception as e:
-            _logger.error(f"Error waiting for VM creation task: {e}")
-            raise
-
         # Resize disk
         try:
-            disk = 'scsi0'
-            new_size = '10G'
-            self.await_function_completion(self.resize_vm_disk,(node,vm_id,disk,new_size))
+            self.await_function_completion(self.resize_vm_disk,(node,vm_id,vm_params['scsi0'],vm_params['disk_size']))
+        except Exception as e:
+            _logger.error(f"Error resizing disk for VM {vm_id}: {e}")
+            raise
+
+        return {
+            "task":{
+                "taskID": vm,
+            },
+            "vm" : {
+                "id": vm_id,
+            }
+        }
+
+#######################
+# MARK:VM Management
+#######################
+
+    def resize_vm_disk(self, node,vm_id,disk,new_size):
+        try:
+            res = self._proxmoxer.nodes(node).qemu(vm_id).resize.put(disk=disk, size=new_size)
+            self.await_task_completion(node, res)
         except Exception as e:
             _logger.error(f"Error resizing disk for VM {vm_id}: {e}")
             raise
@@ -120,14 +134,57 @@ class proxmox:
         return {
             "vm" : {
                 "id": vm_id,
-                "taskID": vm,
+                "taskID": res,
                 "disk_size": new_size
             }
         }
+
+    def list_vms(self, node: str, **kwargs) -> List[Dict[str, Any]]:
+        """List all VMs on a node."""
+        return self._proxmoxer.nodes(node).qemu.get(**kwargs)
+
+    def delete_vm(self, node: str, vmid: str, **kwargs) -> Dict[str, Any]:
+        """Delete a VM."""
+        return self._proxmoxer.nodes(node).qemu(vmid).delete(**kwargs)
+
+    def clone_vm(self, node: str, vmid: str, newid: str, **kwargs) -> Dict[str, Any]:
+        """Clone a VM."""
+        return self._proxmoxer.nodes(node).qemu(vmid).clone.post(newid=newid, **kwargs)
+
+    def start_vm(self, node: str, vmid: str, **kwargs) -> Dict[str, Any]:
+        """Start a VM."""
+        return self._proxmoxer.nodes(node).qemu(vmid).status.start.post(**kwargs)
+
+    def stop_vm(self, node: str, vmid: str, **kwargs) -> Dict[str, Any]:
+        """Stop a VM."""
+        return self._proxmoxer.nodes(node).qemu(vmid).status.stop.post(**kwargs)
+
+    def shutdown_vm(self, node: str, vmid: str, **kwargs) -> Dict[str, Any]:
+        """Shutdown a VM."""
+        return self._proxmoxer.nodes(node).qemu(vmid).status.shutdown.post(**kwargs)
+
+    def reset_vm(self, node: str, vmid: str, **kwargs) -> Dict[str, Any]:
+        """Reset a VM."""
+        return self._proxmoxer.nodes(node).qemu(vmid).status.reset.post(**kwargs)
+
+    def reboot_vm(self, node: str, vmid: str, **kwargs) -> Dict[str, Any]:
+        """Reboot a VM."""
+        return self._proxmoxer.nodes(node).qemu(vmid).status.reboot.post(**kwargs)
+
+    def suspend_vm(self, node: str, vmid: str, **kwargs) -> Dict[str, Any]:
+        """Suspend a VM."""
+        return self._proxmoxer.nodes(node).qemu(vmid).status.suspend.post(**kwargs)
+
+    def resume_vm(self, node: str, vmid: str, **kwargs) -> Dict[str, Any]:
+        """Resume a VM."""
+        return self._proxmoxer.nodes(node).qemu(vmid).status.resume.post(**kwargs)
+    
     
 #######################
-# VM Listing and Information
-#######################    
+# MARK: VM Listing and Information
+#######################   
+
+
     def list_all_vm_ids(self):
         nodes = []
         node_vm_mapping = []
@@ -180,7 +237,7 @@ class proxmox:
         return self._proxmoxer.cluster.nextid.get()
     
 #######################
-# Task Management
+# MARK: Task Management
 #######################
     def await_task_completion(self, node: str, upid: str, timeout: int = 300, interval: int = 5) -> Dict[str, Any]:
         """
@@ -265,7 +322,7 @@ class proxmox:
         return self._proxmoxer.nodes(node).tasks(upid).log.get(**kwargs)
     
 #######################
-# QEMU Agent Management
+# MARK: QEMU Agent Management
 #######################
     def execute_command(self, node: str, vmid: str, command: str) -> Dict[str, Any]:
         """
@@ -342,7 +399,7 @@ class proxmox:
             }
     
 #######################
-# Network Management
+# MARK: Network Management
 #######################
     def get_vm_ipv4(self, node: str, vmid: str) -> Optional[Dict[str, str]]:
         """
@@ -421,14 +478,14 @@ class proxmox:
         return self._proxmoxer.nodes(node).network.get()
     
 #######################
-# Version and System Information
+# MARK: Version and System Information
 #######################
     def get_version(self, **kwargs) -> Dict[str, Any]:
         """Get Proxmox VE version."""
         return self._proxmoxer.version.get(**kwargs)
 
 #######################
-# User and Access Management
+# MARK: User and Access Management
 #######################
     def list_users(self, **kwargs) -> List[Dict[str, Any]]:
         """List all users."""
@@ -463,7 +520,7 @@ class proxmox:
         return self._proxmoxer.access.acl.put(path=path, roles=roles, **kwargs)
 
 #######################
-# Node and Cluster Management
+# MARK:Node and Cluster Management
 #######################
     def list_nodes(self, **kwargs) -> List[Dict[str, Any]]:
         """List all nodes."""
@@ -477,109 +534,3 @@ class proxmox:
         """List all resources."""
         return self._proxmoxer.cluster.resources.get(**kwargs)
 
-#######################
-# VM Management
-#######################
-
-    def resize_vm_disk(self, node,vm_id,disk,new_size):
-        try:
-            res = self._proxmoxer.nodes(node).qemu(vm_id).resize.put(disk=disk, size=new_size)
-            self.await_task_completion(node, res)
-        except Exception as e:
-            _logger.error(f"Error resizing disk for VM {vm_id}: {e}")
-            raise
-
-        return {
-            "vm" : {
-                "id": vm_id,
-                "taskID": res,
-                "disk_size": new_size
-            }
-        }
-
-    def list_vms(self, node: str, **kwargs) -> List[Dict[str, Any]]:
-        """List all VMs on a node."""
-        return self._proxmoxer.nodes(node).qemu.get(**kwargs)
-
-    def delete_vm(self, node: str, vmid: str, **kwargs) -> Dict[str, Any]:
-        """Delete a VM."""
-        return self._proxmoxer.nodes(node).qemu(vmid).delete(**kwargs)
-
-    def clone_vm(self, node: str, vmid: str, newid: str, **kwargs) -> Dict[str, Any]:
-        """Clone a VM."""
-        return self._proxmoxer.nodes(node).qemu(vmid).clone.post(newid=newid, **kwargs)
-
-    def start_vm(self, node: str, vmid: str, **kwargs) -> Dict[str, Any]:
-        """Start a VM."""
-        return self._proxmoxer.nodes(node).qemu(vmid).status.start.post(**kwargs)
-
-    def stop_vm(self, node: str, vmid: str, **kwargs) -> Dict[str, Any]:
-        """Stop a VM."""
-        return self._proxmoxer.nodes(node).qemu(vmid).status.stop.post(**kwargs)
-
-    def shutdown_vm(self, node: str, vmid: str, **kwargs) -> Dict[str, Any]:
-        """Shutdown a VM."""
-        return self._proxmoxer.nodes(node).qemu(vmid).status.shutdown.post(**kwargs)
-
-    def reset_vm(self, node: str, vmid: str, **kwargs) -> Dict[str, Any]:
-        """Reset a VM."""
-        return self._proxmoxer.nodes(node).qemu(vmid).status.reset.post(**kwargs)
-
-    def reboot_vm(self, node: str, vmid: str, **kwargs) -> Dict[str, Any]:
-        """Reboot a VM."""
-        return self._proxmoxer.nodes(node).qemu(vmid).status.reboot.post(**kwargs)
-
-    def suspend_vm(self, node: str, vmid: str, **kwargs) -> Dict[str, Any]:
-        """Suspend a VM."""
-        return self._proxmoxer.nodes(node).qemu(vmid).status.suspend.post(**kwargs)
-
-    def resume_vm(self, node: str, vmid: str, **kwargs) -> Dict[str, Any]:
-        """Resume a VM."""
-        return self._proxmoxer.nodes(node).qemu(vmid).status.resume.post(**kwargs)
-
-#######################
-# Container Management
-#######################
-    def list_containers(self, node: str, **kwargs) -> List[Dict[str, Any]]:
-        """List all containers on a node."""
-        return self._proxmoxer.nodes(node).lxc.get(**kwargs)
-
-    def get_container_status(self, node: str, vmid: str, **kwargs) -> Dict[str, Any]:
-        """Get container status."""
-        return self._proxmoxer.nodes(node).lxc(vmid).status.current.get(**kwargs)
-
-    def get_container_config(self, node: str, vmid: str, **kwargs) -> Dict[str, Any]:
-        """Get container configuration."""
-        return self._proxmoxer.nodes(node).lxc(vmid).config.get(**kwargs)
-
-    def delete_container(self, node: str, vmid: str, **kwargs) -> Dict[str, Any]:
-        """Delete a container."""
-        return self._proxmoxer.nodes(node).lxc(vmid).delete(**kwargs)
-
-    def clone_container(self, node: str, vmid: str, newid: str, **kwargs) -> Dict[str, Any]:
-        """Clone a container."""
-        return self._proxmoxer.nodes(node).lxc(vmid).clone.post(newid=newid, **kwargs)
-
-    def start_container(self, node: str, vmid: str, **kwargs) -> Dict[str, Any]:
-        """Start a container."""
-        return self._proxmoxer.nodes(node).lxc(vmid).status.start.post(**kwargs)
-
-    def stop_container(self, node: str, vmid: str, **kwargs) -> Dict[str, Any]:
-        """Stop a container."""
-        return self._proxmoxer.nodes(node).lxc(vmid).status.stop.post(**kwargs)
-
-    def shutdown_container(self, node: str, vmid: str, **kwargs) -> Dict[str, Any]:
-        """Shutdown a container."""
-        return self._proxmoxer.nodes(node).lxc(vmid).status.shutdown.post(**kwargs)
-
-    def reboot_container(self, node: str, vmid: str, **kwargs) -> Dict[str, Any]:
-        """Reboot a container."""
-        return self._proxmoxer.nodes(node).lxc(vmid).status.reboot.post(**kwargs)
-
-    def suspend_container(self, node: str, vmid: str, **kwargs) -> Dict[str, Any]:
-        """Suspend a container."""
-        return self._proxmoxer.nodes(node).lxc(vmid).status.suspend.post(**kwargs)
-
-    def resume_container(self, node: str, vmid: str, **kwargs) -> Dict[str, Any]:
-        """Resume a container."""
-        return self._proxmoxer.nodes(node).lxc(vmid).status.resume.post(**kwargs)
