@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title | default("Application Debug") }}</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            200: '#c7d2fe',
+                            300: '#a5b4fc',
+                            400: '#818cf8',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                            800: '#3730a3',
+                            900: '#312e81',
+                        },
+                        success: '#10b981',
+                        warning: '#f59e0b',
+                        danger: '#ef4444',
+                        info: '#3b82f6'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <!-- Additional styles -->
+    <style>
+        .debug-card {
+            transition: all 0.3s ease;
+        }
+        .debug-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        pre.code {
+            max-height: 400px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+        }
+        pre.code::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        pre.code::-webkit-scrollbar-thumb {
+            background-color: rgba(156, 163, 175, 0.5);
+            border-radius: 3px;
+        }
+        pre.code::-webkit-scrollbar-track {
+            background: rgba(229, 231, 235, 0.5);
+            border-radius: 3px;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-ok {
+            background-color: #10b981;
+        }
+        .status-warning {
+            background-color: #f59e0b;
+        }
+        .status-error {
+            background-color: #ef4444;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 flex items-center">
+                        <svg class="h-8 w-8 text-primary-600" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 4L4 8L12 12L20 8L12 4Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M4 12L12 16L20 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M4 16L12 20L20 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <span class="ml-2 text-xl font-semibold text-gray-800">{{ app_name | default("API Platform") }}</span>
+                    </div>
+                    <div class="hidden md:ml-6 md:flex md:space-x-8">
+                        <a href="/" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            Home
+                        </a>
+                        <a href="/debug" class="border-primary-500 text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            Debug
+                        </a>
+                        <a href="/docs" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            API Docs
+                        </a>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <span class="text-sm text-gray-500">Environment: <span class="font-semibold text-primary-600">{{ environment | default('Development') }}</span></span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero section -->
+    <div class="py-10 bg-primary-700">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="lg:text-center">
+                <h2 class="text-base text-primary-200 font-semibold tracking-wide uppercase">Developer Tools</h2>
+                <p class="mt-2 text-3xl leading-8 font-bold tracking-tight text-white sm:text-4xl">
+                    Application Debug Panel
+                </p>
+                <p class="mt-4 max-w-2xl text-xl text-primary-200 lg:mx-auto">
+                    Monitor, troubleshoot, and inspect the internal state of your application.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main content -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <!-- Status overview -->
+        <div class="bg-white shadow rounded-lg mb-10">
+            <div class="px-4 py-5 sm:p-6">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">System Status</h3>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <!-- Application Status -->
+                    <div class="bg-gray-50 p-4 rounded-md border border-gray-200">
+                        <div class="flex items-center">
+                            <div class="status-indicator status-{{ app_status.status | default('ok') }}"></div>
+                            <h4 class="text-sm font-medium text-gray-900">Application</h4>
+                        </div>
+                        <p class="mt-1 text-2xl font-semibold text-gray-700">{{ app_status.message | default('Running') }}</p>
+                        <p class="mt-1 text-xs text-gray-500">Uptime: {{ app_status.uptime | default('0d 0h 0m') }}</p>
+                    </div>
+                    
+                    <!-- Memory Usage -->
+                    <div class="bg-gray-50 p-4 rounded-md border border-gray-200">
+                        <div class="flex items-center">
+                            <div class="status-indicator status-{{ memory_status.status | default('ok') }}"></div>
+                            <h4 class="text-sm font-medium text-gray-900">Memory</h4>
+                        </div>
+                        <p class="mt-1 text-2xl font-semibold text-gray-700">{{ memory_status.usage | default('0 MB') }}</p>
+                        <p class="mt-1 text-xs text-gray-500">{{ memory_status.percentage | default('0%') }} of allocated</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Debug Tools Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+            <!-- Templates Explorer -->
+            <div class="debug-card bg-white shadow overflow-hidden sm:rounded-lg">
+                <div class="px-4 py-5 sm:px-6 flex justify-between items-center bg-gray-50">
+                    <div>
+                        <h3 class="text-lg leading-6 font-medium text-gray-900">Templates</h3>
+                        <p class="mt-1 max-w-2xl text-sm text-gray-500">List of all available Jinja templates</p>
+                    </div>
+                    <button id="refreshTemplates" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                        <svg class="h-4 w-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Refresh
+                    </button>
+                </div>
+                <div class="border-t border-gray-200 px-4 py-5 sm:px-6">
+                    <div class="flex text-sm text-gray-500 mb-3">
+                        <span class="inline-block w-8 mr-2">#</span>
+                        <span>Template Path</span>
+                    </div>
+                    <div id="templates-list" class="bg-gray-50 rounded-md p-3 max-h-60 overflow-y-auto">
+                        {% if templates %}
+                            {% for template in templates %}
+                                <div class="flex py-2 text-sm hover:bg-gray-100 rounded px-2">
+                                    <span class="inline-block w-8 mr-2 text-gray-400">{{ loop.index }}</span>
+                                    <span class="font-mono">{{ template }}</span>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="text-gray-500 italic">No templates found</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Environment Variables -->
+            <div class="debug-card bg-white shadow overflow-hidden sm:rounded-lg">
+                <div class="px-4 py-5 sm:px-6 flex justify-between items-center bg-gray-50">
+                    <div>
+                        <h3 class="text-lg leading-6 font-medium text-gray-900">Environment Variables</h3>
+                        <p class="mt-1 max-w-2xl text-sm text-gray-500">Application environment configuration</p>
+                    </div>
+                    <button id="refreshEnv" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                        <svg class="h-4 w-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Refresh
+                    </button>
+                </div>
+                <div class="border-t border-gray-200 px-4 py-5 sm:px-6">
+                    <div class="flex text-sm text-gray-500 mb-3">
+                        <span class="inline-block w-1/3">Key</span>
+                        <span>Value</span>
+                    </div>
+                    <div id="env-list" class="bg-gray-50 rounded-md p-3 max-h-60 overflow-y-auto">
+                        {% if env_vars %}
+                            {% for key, value in env_vars.items() %}
+                                <div class="flex py-2 text-sm hover:bg-gray-100 rounded px-2">
+                                    <span class="inline-block w-1/3 font-medium text-gray-700">{{ key }}</span>
+                                    <span class="font-mono text-gray-600">{{ value }}</span>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="text-gray-500 italic">No environment variables available</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Routes -->
+            <div class="debug-card bg-white shadow overflow-hidden sm:rounded-lg">
+                <div class="px-4 py-5 sm:px-6 flex justify-between items-center bg-gray-50">
+                    <div>
+                        <h3 class="text-lg leading-6 font-medium text-gray-900">API Routes</h3>
+                        <p class="mt-1 max-w-2xl text-sm text-gray-500">All registered routes in the application</p>
+                    </div>
+                    <button id="refreshRoutes" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                        <svg class="h-4 w-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Refresh
+                    </button>
+                </div>
+                <div class="border-t border-gray-200 px-4 py-5 sm:px-6">
+                    <div class="flex text-sm text-gray-500 mb-3">
+                        <span class="inline-block w-20">Method</span>
+                        <span>Path</span>
+                    </div>
+                    <div id="routes-list" class="bg-gray-50 rounded-md p-3 max-h-60 overflow-y-auto">
+                        {% if routes %}
+                            {% for route in routes %}
+                                <div class="flex py-2 text-sm hover:bg-gray-100 rounded px-2">
+                                    <span class="inline-block w-20">
+                                        {% if route.method == "GET" %}
+                                            <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">GET</span>
+                                        {% elif route.method == "POST" %}
+                                            <span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">POST</span>
+                                        {% elif route.method == "PUT" %}
+                                            <span class="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">PUT</span>
+                                        {% elif route.method == "DELETE" %}
+                                            <span class="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">DELETE</span>
+                                        {% else %}
+                                            <span class="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">{{ route.method }}</span>
+                                        {% endif %}
+                                    </span>
+                                    <span class="font-mono">{{ route.path }}</span>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="text-gray-500 italic">No routes found</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Info -->
+            <div class="debug-card bg-white shadow overflow-hidden sm:rounded-lg">
+                <div class="px-4 py-5 sm:px-6 flex justify-between items-center bg-gray-50">
+                    <div>
+                        <h3 class="text-lg leading-6 font-medium text-gray-900">System Information</h3>
+                        <p class="mt-1 max-w-2xl text-sm text-gray-500">Host system details</p>
+                    </div>
+                    <button id="refreshSystemInfo" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                        <svg class="h-4 w-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Refresh
+                    </button>
+                </div>
+                <div class="border-t border-gray-200 px-4 py-5 sm:px-6">
+                    <div id="system-info" class="bg-gray-50 rounded-md p-3">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="flex flex-col">
+                                <div class="text-sm font-medium text-gray-500">Platform</div>
+                                <div class="text-sm text-gray-900" id="system-platform">Loading...</div>
+                            </div>
+                            <div class="flex flex-col">
+                                <div class="text-sm font-medium text-gray-500">Python Version</div>
+                                <div class="text-sm text-gray-900" id="system-python">Loading...</div>
+                            </div>
+                            <div class="flex flex-col">
+                                <div class="text-sm font-medium text-gray-500">CPU Count</div>
+                                <div class="text-sm text-gray-900" id="system-cpu-count">Loading...</div>
+                            </div>
+                            <div class="flex flex-col">
+                                <div class="text-sm font-medium text-gray-500">CPU Usage</div>
+                                <div class="text-sm text-gray-900" id="system-cpu-percent">Loading...</div>
+                            </div>
+                            <div class="flex flex-col">
+                                <div class="text-sm font-medium text-gray-500">Memory Total</div>
+                                <div class="text-sm text-gray-900" id="system-memory-total">Loading...</div>
+                            </div>
+                            <div class="flex flex-col">
+                                <div class="text-sm font-medium text-gray-500">Memory Available</div>
+                                <div class="text-sm text-gray-900" id="system-memory-available">Loading...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Log Viewer Section -->
+        <div class="bg-white shadow overflow-hidden sm:rounded-lg mb-10">
+            <div class="px-4 py-5 sm:px-6 flex justify-between items-center bg-gray-50">
+                <div>
+                    <h3 class="text-lg leading-6 font-medium text-gray-900">Application Logs</h3>
+                    <p class="mt-1 max-w-2xl text-sm text-gray-500">Recent log entries from the application</p>
+                </div>
+                <div class="flex space-x-2">
+                    <select id="logLevel" class="mt-1 block pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md">
+                        <option value="all">All Levels</option>
+                        <option value="debug">Debug</option>
+                        <option value="info">Info</option>
+                        <option value="warning">Warning</option>
+                        <option value="error">Error</option>
+                    </select>
+                    <button id="refreshLogs" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                        <svg class="h-4 w-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Refresh
+                    </button>
+                </div>
+            </div>
+            <div class="border-t border-gray-200 px-4 py-5 sm:px-6">
+                <pre id="log-viewer" class="code bg-gray-900 text-gray-100 rounded-md p-4 overflow-x-auto">{% if logs %}{% for log in logs %}{{ log }}
+{% endfor %}{% else %}No logs available{% endif %}</pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-white mt-12">
+        <div class="max-w-7xl mx-auto py-6 px-4 overflow-hidden sm:px-6 lg:px-8">
+            <p class="text-center text-sm text-gray-500">
+                Debug mode is active. This page is only available in development environment.
+            </p>
+        </div>
+    </footer>
+
+    <!-- JavaScript for debug functionality -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initial system info load
+            loadSystemInfo();
+            
+            // Template refresh button
+            document.getElementById('refreshTemplates').addEventListener('click', async () => {
+                try {
+                    const response = await fetch('/debug/templates');
+                    const data = await response.json();
+                    
+                    if (data.ok) {
+                        const templatesList = document.getElementById('templates-list');
+                        templatesList.innerHTML = '';
+                        
+                        if (data.ok.length === 0) {
+                            templatesList.innerHTML = '<div class="text-gray-500 italic">No templates found</div>';
+                        } else {
+                            data.ok.forEach((template, index) => {
+                                const div = document.createElement('div');
+                                div.className = 'flex py-2 text-sm hover:bg-gray-100 rounded px-2';
+                                div.innerHTML = `
+                                    <span class="inline-block w-8 mr-2 text-gray-400">${index + 1}</span>
+                                    <span class="font-mono">${template}</span>
+                                `;
+                                templatesList.appendChild(div);
+                            });
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error fetching templates:', error);
+                }
+            });
+            
+            // System info refresh button and function
+            document.getElementById('refreshSystemInfo').addEventListener('click', loadSystemInfo);
+            
+            function loadSystemInfo() {
+                fetch('/debug/system-info')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.ok) {
+                            document.getElementById('system-platform').textContent = data.ok.platform;
+                            document.getElementById('system-python').textContent = data.ok.python_version;
+                            document.getElementById('system-cpu-count').textContent = data.ok.cpu_count;
+                            document.getElementById('system-cpu-percent').textContent = data.ok.cpu_percent;
+                            document.getElementById('system-memory-total').textContent = data.ok.memory_total;
+                            document.getElementById('system-memory-available').textContent = data.ok.memory_available;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching system info:', error);
+                    });
+            }
+            
+            // Routes refresh button 
+            document.getElementById('refreshRoutes').addEventListener('click', async () => {
+                // This would require an endpoint to fetch routes
+                // Since we don't have a dedicated endpoint, we'll reload the page
+                window.location.reload();
+            });
+            
+            // Environment variables refresh button
+            document.getElementById('refreshEnv').addEventListener('click', async () => {
+                // This would require an endpoint to fetch env vars
+                // Since we don't have a dedicated endpoint, we'll reload the page
+                window.location.reload();
+            });
+            
+            // Logs refresh button
+            document.getElementById('refreshLogs').addEventListener('click', async () => {
+                // This would require an endpoint to fetch logs
+                // Since we don't have a dedicated endpoint, we'll reload the page
+                window.location.reload();
+            });
+        });
+    </script>
+</body>
+</html>
