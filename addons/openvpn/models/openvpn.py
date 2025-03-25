@@ -1,0 +1,2 @@
+# Create a volume mapping between docker '/etc/openvpn/easy-rsa/' in docker and on ''/etc/openvpn/easy-rsa/' on the server
+# This should enable on to add ssh certs to /etc/openvpn/easy-rsa/ without being able to privlage ecalate 

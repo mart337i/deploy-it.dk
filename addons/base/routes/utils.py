@@ -11,7 +11,7 @@ from clicx.utils.jinja import render
 from clicx.utils.security import _generate_password
 
 router = APIRouter(
-    prefix=f"/utils/templates",
+    prefix=f"/utils/security",
     tags=["Utils for security"],
 )
 

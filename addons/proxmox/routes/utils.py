@@ -1,31 +1,22 @@
 from datetime import datetime
+from typing import List
 
 # Third-party imports
-import rich
-import typer
-from fastapi.responses import HTMLResponse
 from fastapi.routing import APIRouter
 
 # Local imports
-from clicx.utils.jinja import render
-from clicx.utils.security import _generate_password
+from clicx.utils.jinja import _env
 
 router = APIRouter(
-    prefix=f"/utils/security",
-    tags=["Utils for security"],
+    prefix=f"/utils/templates",
+    tags=["Utils for templates"],
 )
 
 dependency = []
 
-@router.get("/", response_class=HTMLResponse)
-async def generate_password2(len : int):
-    """
-    Generate a secure password
-    
-    Args:
-        len: password lenght
-        
-    Returns:
-        Password of x lenght 
-    """
-    return _generate_password(len)
+@router.get("/get_templates")
+async def list_templates() -> dict[str, List[str]]:
+    templates = _env.list_templates()
+    return {
+        "templates": templates,
+    }

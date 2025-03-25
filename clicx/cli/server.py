@@ -18,6 +18,8 @@ import typer
 # Local application imports
 from clicx.config import addons, templates_dir, configuration
 from clicx.utils.middleware import log_request_info
+from clicx.utils.python import deep_merge
+from clicx.database.cr import DatabaseManager
 
 import logging
 _logger = logging.getLogger("app")
@@ -150,33 +152,48 @@ class API:
 # The name and api_application.app e.g api_app and name = api_app has to be the same, otherwise the uvicorns lifespan trows and error
 api: API = API("api_app")
 api_app: FastAPI = api.app
-
 cli = typer.Typer(help="Clicx server application")
+
 
 @cli.command(help="Start the application")
 def server(
-    config_file: Annotated[Path, typer.Option(help='Server config file')] = None,
-    host: Annotated[str, typer.Option(help='Bind socket to this host')] = None,
-    port: Annotated[int, typer.Option(help='Bind socket to this port')] = None,
-    reload: Annotated[bool, typer.Option(help='Enable auto-reload')] = None,
-    log_level: Annotated[str, typer.Option(help='Log level')] = None,
-    workers: Annotated[int, typer.Option(help='Number of worker processes')] = None,
+    config_file: Annotated[Optional[Path], typer.Option("--config", help='Server config file')] = None,
+    host: Annotated[Optional[str], typer.Option(help='Bind socket to this host')] = None,
+    port: Annotated[Optional[int], typer.Option(help='Bind socket to this port')] = None,
+    reload: Annotated[Optional[bool], typer.Option(help='Enable auto-reload')] = None,
+    log_level: Annotated[Optional[str], typer.Option(help='Log level')] = None,
+    workers: Annotated[Optional[int], typer.Option(help='Number of worker processes')] = None,
+    database: Annotated[Optional[str], typer.Option(help="Database name")] = None,
+    username: Annotated[Optional[str], typer.Option(help="Database username")] = None,
+    database_password: Annotated[Optional[str], typer.Option(help="Database user password")] = None,
+    init_database: Annotated[Optional[bool], typer.Option(help='Initialize database')] = False,
+    update_database: Annotated[Optional[bool], typer.Option(help="Update database using migrations")] = False,
 ):
-    """Start the server application."""
-    loaded_conf = {}
-
-    if config_file:
-        loaded_conf = configuration.load_config(config_file)
+    """Start the server application with optional database operations."""
+    loaded_conf = {key: value for key, value in locals().items() if value is not None and key != "config_file"}
     
-    if host is not None:
-        loaded_conf["host"] = host
-    if port is not None:
-        loaded_conf["port"] = port
-    if reload is not None:
-        loaded_conf["reload"] = reload
-    if log_level is not None:
-        loaded_conf["log_level"] = log_level
-    if workers is not None:
-        loaded_conf["workers"] = workers
-
+    if config_file:
+        config_file_data = configuration.load_config(config_file=config_file)
+        loaded_conf = deep_merge(dict1=config_file_data, dict2=loaded_conf)
+    
+    # Handle database operations before starting the server
+    if init_database or update_database:
+        db_manager = DatabaseManager(
+            username=loaded_conf.get('username'),
+            password=loaded_conf.get('database_password'),
+            hostname=loaded_conf.get('hostname', 'localhost'),
+            database_name=loaded_conf.get('database')
+        )
+        
+        if init_database:
+            typer.echo("Initializing database...")
+            db_manager.init_database()
+            typer.echo("Database initialized successfully!")
+            
+        if update_database:
+            typer.echo("Updating database using migrations...")
+            db_manager.update_database()
+            typer.echo("Database updated successfully!")
+    
+    # Start the API server
     api.start(config=loaded_conf)

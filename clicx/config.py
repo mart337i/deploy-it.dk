@@ -23,6 +23,7 @@ class Configuration:
         self.commands_dir = commands_dir
         self.debug = 1 if debug == 1 else 0;
         self.config = {}
+        self.env_variables = {}
         self.template_dirs = [templates_dir] + self.discover_template_dirs()
     
     def load_config(self, config_file):
@@ -80,22 +81,14 @@ class Configuration:
             
         for key, value in os.environ.items():
             setattr(self, key, value)
-    
+            self.env_variables[key] = value
+                
     def reload(self):
         """Reload environment variables from commands directory and OS environment"""
         self.load_env_from_directory(self.commands_dir)
         
         for key, value in os.environ.items():
             setattr(self, key, value)
-
-    def __str__(self):
-        """Return a string listing all environment variables stored in the configuration"""
-        env_list = []
-        for key in dir(self):
-            if not key.startswith('__') and key != 'addons' and key != 'reload' and key != 'load_env_from_directory':
-                value = getattr(self, key)
-                if not callable(value):
-                    env_list.append(f"{key}={value}")
-        return "\n".join(env_list)
+            self.env_variables[key] = value
 
 configuration: Configuration = Configuration(addons)
