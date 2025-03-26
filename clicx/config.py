@@ -5,10 +5,9 @@ import configparser
 import glob
 import os
 import rich
+from clicx import templates_dir, addons
+from clicx.utils.jinja import render
 
-templates_dir: Path = Path(Path(__file__).parent, 'templates')
-addons: Path = Path(Path(__file__).parent.parent, 'addons')
-project_root : Path = Path(Path(__file__).parent.parent)
 
 class Configuration:
     def __init__(self, commands_dir):
@@ -20,30 +19,55 @@ class Configuration:
             commands_dir: Directory containing command modules and their environment files
         """
         debug = os.getenv('CLICX_DEBUG', 0)
-
         self.commands_dir = commands_dir
         self.debug = 1 if debug == 1 else 0;
         self.config = {}
         self.env_variables = {}
-        self.template_dirs = [templates_dir] + self.discover_template_dirs()
-    
+        
+        self.verify_config_setup()
+
+    def verify_config_setup(self):
+        """
+        Will create nessesay config file, if not found
+        """
+        def _exist(path: Path):
+            if path.exists():
+                return True
+            else:
+                return False
+                
+        default_config_path = ".config/clicx/clicx.conf"
+        config_path: Path = Path(Path(__file__).parent.parent, default_config_path)
+        
+        if not _exist(config_path):
+            os.makedirs(config_path.parent, exist_ok=True)
+            self.create_config(output_path=config_path)
+            return False
+        
+        self.load_config(config_file=config_path)
+        return True
+
     def load_config(self, config_file):
         parser = configparser.ConfigParser()
         parser.read(config_file)
+
+        for option in parser.defaults():
+            if 'DEFAULT' not in self.config:
+                self.config['DEFAULT'] = {}
+            self.config['DEFAULT'][option] = parser.get('DEFAULT', option)
         
         for section in parser.sections():
+            if section not in self.config:
+                self.config[section] = {}
+        
             for option in parser.options(section):
-                if section != 'DEFAULT':
-                    key = f"{section}_{option}"
-                else:
-                    key = option
-                    
+                if section == 'DEFAULT' and option in parser.defaults():
+                    continue
                 value = parser.get(section, option)
-                self.config[key] = value
+                self.config[section][option] = value
 
-    def create_config(output_path):
-        from clicx.utils.jinja import render
-        template = render(".conf.jina")
+    def create_config(self,output_path):
+        template = render(template_name="clicx.conf.jinja")
         try:
             with open(output_path, 'w') as f:
                 f.write(template)
@@ -51,19 +75,6 @@ class Configuration:
             rich.print("[yellow]Please edit the file to set your specific configuration values.[/yellow]")
         except Exception as e:
             rich.print(f"[red]Error generating configuration file: {e}[/red]")
-
-    def discover_template_dirs(self) -> List[Path]:
-        addon_template_dirs = []
-        
-        if addons.exists() and addons.is_dir():
-            for addon_dir in addons.iterdir():
-                if addon_dir.is_dir():
-                    # Check if this addon has a templates directory
-                    addon_templates_path = addon_dir / 'templates'
-                    if addon_templates_path.exists() and addon_templates_path.is_dir():
-                        addon_template_dirs.append(addon_templates_path)
-        
-        return addon_template_dirs
    
     def load_env_from_directory(self, directory):
         """

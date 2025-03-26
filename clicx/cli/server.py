@@ -19,7 +19,6 @@ from clicx.config import addons, templates_dir, configuration
 from clicx.utils.middleware import log_request_info
 from clicx.utils.python import deep_merge
 from clicx.database.cr import DatabaseManager
-from clicx import VERSION
 
 import logging
 _logger = logging.getLogger("app")
@@ -31,22 +30,33 @@ import urllib3
 urllib3.disable_warnings()
 
 class API(FastAPI):
-    def __init__(self):
-        super().__init__(
-            title="API",
-            openapi_url=f"/openapi.json",
-            docs_url="/docs/",
-            description=f"API",
-            version=VERSION,
-            license_info={
-                "name": "MIT",
-                "url": "https://pitt.libguides.com/openlicensing/MIT",
+    def __init__(
+            self,
+            title : str = "FastApi",
+            openapi_url: str = "/openapi.json",
+            docs_url : str = "/docs",
+            description: str = "API",
+            version: str = "0.1.0",
+            license_info : dict = {
+                "name": "Apache 2.0",
+                "url": "https://www.apache.org/licenses/LICENSE-2.0.html",
             },
-            contact={
-                "name": "Deploy-it.dk",
-                "url": "https://deploy-it.dk",
-                "email": "dev@deploy-it.dk",
-            }
+            contact: dict = {
+                "name": "Deadpoolio the Amazing",
+                "url": "http://x-force.example.com/contact/",
+                "email": "dp@x-force.example.com",
+            },
+        ):
+        
+        # Run Base class init
+        super().__init__(
+            title=title,
+            openapi_url=openapi_url,
+            docs_url=docs_url,
+            description=description,
+            version=version,
+            license_info=license_info,
+            contact=contact,
         )
         
         # Setup the application
@@ -177,8 +187,8 @@ def server(
     loaded_conf = {key: value for key, value in locals().items() if value is not None and key != "config_file"}
     
     if config_file:
-        config_file_data = configuration.load_config(config_file=config_file)
-        loaded_conf = deep_merge(dict1=config_file_data, dict2=loaded_conf)
+        configuration.load_config(config_file=config_file)
+        loaded_conf = deep_merge(dict1=configuration.config, dict2=loaded_conf)
     
     # Handle database operations before starting the server
     if init_database or update_database:
@@ -200,12 +210,7 @@ def server(
             typer.echo("Database updated successfully!")
 
     if save_config:
-        default_config_path = ".config/clicx/clicx.conf"
-        config_path : Path = Path(Path(__file__).parent.parent, default_config_path)
-        if not os.path.exists(config_path):
-            return
-        # Create/edit config with the loaded config.
-        Ellipsis
+        ...
 
     # Start the API server
     api.start(config=loaded_conf)

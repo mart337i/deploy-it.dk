@@ -35,7 +35,7 @@ Example:
     ```
 """
 from pathlib import Path
-from typing import Dict, Any, Optional, Union
+from typing import Dict, Any, Optional, Union, List
 
 from jinja2 import (
     Environment, 
@@ -46,10 +46,25 @@ from jinja2 import (
     ChoiceLoader
 )
 
-from clicx.config import configuration
+from clicx import addons,templates_dir
 
 def _setup_jinja_environment():
-    loaders = [FileSystemLoader(path.absolute()) for path in configuration.template_dirs]
+    def discover_template_dirs() -> List[Path]:
+        addon_template_dirs = []
+        
+        if addons.exists() and addons.is_dir():
+            for addon_dir in addons.iterdir():
+                if addon_dir.is_dir():
+                    # Check if this addon has a templates directory
+                    addon_templates_path = addon_dir / 'templates'
+                    if addon_templates_path.exists() and addon_templates_path.is_dir():
+                        addon_template_dirs.append(addon_templates_path)
+        
+        return addon_template_dirs
+    
+    addons_temp = discover_template_dirs() + [templates_dir]
+
+    loaders = [FileSystemLoader(path.absolute()) for path in addons_temp]
 
     env = Environment(
         loader=ChoiceLoader(loaders),
