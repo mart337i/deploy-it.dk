@@ -20,10 +20,6 @@ poetry install
 pip install -e .
 
 ```
-
-## Configure
-run `clicx server --save` with the parametors you want to run the service with. like `--host`.
-
 ## Usage
 
 - All .env files will be loaded if they are loacted in the addons folder
