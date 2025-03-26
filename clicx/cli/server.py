@@ -139,10 +139,10 @@ class API:
     def start(self,config : dict):
         uvicorn.run(
             app=f"clicx.cli.server:{self.application_name}",
-            host=config.get("host", "0.0.0.0"),
-            port=config.get("port", 8000),
-            log_level=config.get("log_level", logging.INFO),
-            reload=config.get("reload", True),
+            host=config.get("host"),
+            port=config.get("port"),
+            log_level=config.get("log_level"),
+            reload=config.get("reload"),
             lifespan="on"
         )
 
@@ -158,10 +158,10 @@ cli = typer.Typer(help="Clicx server application")
 @cli.command(help="Start the application")
 def server(
     config_file: Annotated[Optional[Path], typer.Option("--config", help='Server config file')] = None,
-    host: Annotated[Optional[str], typer.Option(help='Bind socket to this host')] = None,
-    port: Annotated[Optional[int], typer.Option(help='Bind socket to this port')] = None,
-    reload: Annotated[Optional[bool], typer.Option(help='Enable auto-reload')] = None,
-    log_level: Annotated[Optional[str], typer.Option(help='Log level')] = None,
+    host: Annotated[Optional[str], typer.Option(help='Bind socket to this host')] = "0.0.0.0",
+    port: Annotated[Optional[int], typer.Option(help='Bind socket to this port')] = 8000,
+    reload: Annotated[Optional[bool], typer.Option(help='Enable auto-reload')] = True,
+    log_level: Annotated[Optional[str], typer.Option(help='Log level')] = logging.INFO,
     workers: Annotated[Optional[int], typer.Option(help='Number of worker processes')] = None,
     database: Annotated[Optional[str], typer.Option(help="Database name")] = None,
     username: Annotated[Optional[str], typer.Option(help="Database username")] = None,
