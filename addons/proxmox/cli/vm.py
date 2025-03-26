@@ -13,7 +13,7 @@ from typing_extensions import Annotated
 from addons.proxmox.models.proxmox import proxmox
 
 console = Console()
-app = typer.Typer(help="Proxmox VE management commands")
+app = typer.Typer(help="Virtual machine management")
 
 
 def pve_conn() -> proxmox:
@@ -192,32 +192,6 @@ def delete(
     result = pve_conn().delete_vm(node=node, vmid=vmid)
     console.print(f"[bold green]VM {vmid} deletion initiated. Task ID: {result}[/bold green]")
 
-
-@app.command()
-def list_nodes():
-    """List all nodes in the cluster."""
-    nodes = pve_conn().list_nodes()
-    
-    table = Table(title="Proxmox VE Nodes")
-    
-    table.add_column("Node")
-    table.add_column("Status")
-    table.add_column("CPU")
-    table.add_column("Memory")
-    table.add_column("Uptime")
-    
-    for node in nodes:
-        table.add_row(
-            node.get('node', ''),
-            node.get('status', ''),
-            f"{node.get('cpu', 0):.2f}%",
-            f"{node.get('mem', 0) / (1024*1024*1024):.1f} GB",
-            f"{node.get('uptime', 0) // 86400} days"
-        )
-    
-    console.print(table)
-
-
 @app.command()
 def get_ip(
     node: str = typer.Option(..., "--node", "-n", help="Node name"),
@@ -261,35 +235,6 @@ def resize_disk(
     """Resize a VM disk."""
     result = pve_conn().resize_vm_disk(node=node, vm_id=vmid, disk=disk, new_size=size)
     console.print(f"[bold green]VM {vmid} disk resize initiated. Task ID: {result.get('vm', {}).get('taskID', '')}[/bold green]")
-
-
-@app.command()
-def list_tasks(
-    node: str = typer.Option(..., "--node", "-n", help="Node name"),
-    limit: int = typer.Option(10, "--limit", "-l", help="Limit number of tasks"),
-):
-    """List recent tasks on a node."""
-    tasks = pve_conn().list_tasks(node=node, limit=limit)
-    
-    table = Table(title=f"Recent tasks on node {node}")
-    
-    table.add_column("Task ID")
-    table.add_column("Type")
-    table.add_column("Status")
-    table.add_column("Start Time")
-    table.add_column("End Time")
-    
-    for task in tasks:
-        table.add_row(
-            task.get('upid', ''),
-            task.get('type', ''),
-            task.get('status', ''),
-            task.get('starttime', ''),
-            task.get('endtime', '')
-        )
-    
-    console.print(table)
-
 
 @app.command()
 def task_status(
@@ -359,102 +304,6 @@ def config(
         table.add_row(key, str(value))
     
     console.print(table)
-
-
-@app.command()
-def version():
-    """Get Proxmox VE version."""
-    version = pve_conn().get_version()
-    
-    table = Table(title="Proxmox VE Version")
-    table.add_column("Property")
-    table.add_column("Value")
-    
-    for key, value in version.items():
-        table.add_row(key, str(value))
-    
-    console.print(table)
-
-
-@app.command()
-def list_users():
-    """List all users."""
-    users = pve_conn().list_users()
-    
-    table = Table(title="Proxmox VE Users")
-    table.add_column("User ID")
-    table.add_column("Email")
-    table.add_column("Enabled")
-    table.add_column("Expiration")
-    
-    for user in users:
-        table.add_row(
-            user.get('userid', ''),
-            user.get('email', ''),
-            str(user.get('enable', True)),
-            user.get('expire', 'Never')
-        )
-    
-    console.print(table)
-
-
-@app.command()
-def list_roles():
-    """List all roles."""
-    roles = pve_conn().list_roles()
-    
-    table = Table(title="Proxmox VE Roles")
-    table.add_column("Role")
-    table.add_column("Privileges")
-    
-    for role in roles:
-        table.add_row(
-            role.get('roleid', ''),
-            ", ".join(role.get('privs', []))
-        )
-    
-    console.print(table)
-
-
-@app.command()
-def list_permissions():
-    """List all permissions."""
-    permissions = pve_conn().list_permissions()
-    
-    table = Table(title="Proxmox VE Permissions")
-    table.add_column("Permission")
-    table.add_column("Description")
-    
-    for perm in permissions:
-        table.add_row(
-            perm.get('path', ''),
-            perm.get('description', '')
-        )
-    
-    console.print(table)
-
-
-@app.command()
-def list_resources():
-    """List all resources."""
-    resources = pve_conn().list_resources()
-    
-    table = Table(title="Proxmox VE Resources")
-    table.add_column("ID")
-    table.add_column("Type")
-    table.add_column("Name")
-    table.add_column("Status")
-    
-    for res in resources:
-        table.add_row(
-            res.get('id', ''),
-            res.get('type', ''),
-            res.get('name', ''),
-            res.get('status', '')
-        )
-    
-    console.print(table)
-
 
 @app.command()
 def get_next_vmid():

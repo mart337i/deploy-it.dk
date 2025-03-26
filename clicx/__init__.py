@@ -9,6 +9,8 @@ __path__ = extend_path(__path__, __name__)
 
 __version__ = '1.0.0'
 VERSION: str = __version__
+
+# Usefull paths
 templates_dir: Path = Path(Path(__file__).parent, 'templates')
 addons: Path = Path(Path(__file__).parent.parent, 'addons')
 project_root : Path = Path(Path(__file__).parent.parent)
