@@ -24,12 +24,6 @@ def server(
     reload: Annotated[Optional[bool], typer.Option(help='Enable auto-reload')] = True,
     log_level: Annotated[Optional[str], typer.Option(help='Log level')] = None,
     workers: Annotated[Optional[int], typer.Option(help='Number of worker processes')] = None,
-    database: Annotated[Optional[str], typer.Option(help="Database name")] = None,
-    username: Annotated[Optional[str], typer.Option(help="Database username")] = None,
-    database_password: Annotated[Optional[str], typer.Option(help="Database user password")] = None,
-    init_database: Annotated[Optional[bool], typer.Option(help='Initialize database')] = False,
-    update_database: Annotated[Optional[bool], typer.Option(help="Update database using migrations")] = False,
-    save_config: Annotated[Optional[bool], typer.Option(default="--save",help="Generate config file")] = False,
 ):
     """Start the server application with optional database operations."""
     loaded_conf = {key: value for key, value in locals().items() if value is not None and key != "config_file"}
