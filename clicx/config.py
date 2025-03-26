@@ -8,6 +8,7 @@ import rich
 
 templates_dir: Path = Path(Path(__file__).parent, 'templates')
 addons: Path = Path(Path(__file__).parent.parent, 'addons')
+project_root : Path = Path(Path(__file__).parent.parent)
 
 class Configuration:
     def __init__(self, commands_dir):

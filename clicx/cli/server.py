@@ -1,4 +1,3 @@
-
 # Standard library imports
 import os
 import importlib
@@ -20,6 +19,7 @@ from clicx.config import addons, templates_dir, configuration
 from clicx.utils.middleware import log_request_info
 from clicx.utils.python import deep_merge
 from clicx.database.cr import DatabaseManager
+from clicx import VERSION
 
 import logging
 _logger = logging.getLogger("app")
@@ -30,43 +30,48 @@ import urllib3
 # Disable SSL warnings
 urllib3.disable_warnings()
 
-class API:
-    def __init__(self, name: str):
-        self.application_name: str = name
-        self.app: FastAPI = self.create_app()
-
-    def setup_base_routes(self,app: FastAPI) -> None:
-        pass
-
-    def setup_addon_routers(self,app: FastAPI) -> None:
-        """
-            Import all routes using dynamic importing (Reflections)
-        """
-        self.register_routes(app=app)
-
-    def create_app(self):
-        description = f"API"
-        fastapi_app = FastAPI(
+class API(FastAPI):
+    def __init__(self):
+        super().__init__(
             title="API",
             openapi_url=f"/openapi.json",
             docs_url="/docs/",
-            description=description,
+            description=f"API",
+            version=VERSION,
+            license_info={
+                "name": "MIT",
+                "url": "https://pitt.libguides.com/openlicensing/MIT",
+            },
+            contact={
+                "name": "Deploy-it.dk",
+                "url": "https://deploy-it.dk",
+                "email": "dev@deploy-it.dk",
+            }
         )
-        self.setup_base_routes(app=fastapi_app)
-        self.setup_addon_routers(app=fastapi_app)
-        self.use_route_names_as_operation_ids(app=fastapi_app)
-        self.setup_middleware(app=fastapi_app)
-        return fastapi_app
-    
+        
+        # Setup the application
+        self.setup_base_routes()
+        self.setup_addon_routers()
+        self.use_route_names_as_operation_ids()
+        self.setup_middleware()
 
-    def setup_middleware(self,app : FastAPI):
+    def setup_base_routes(self) -> None:
+        pass
+
+    def setup_addon_routers(self) -> None:
+        """
+            Import all routes using dynamic importing (Reflections)
+        """
+        self.register_routes()
+
+    def setup_middleware(self):
         origins = [
             "http://localhost",
             "http://localhost:8000",
             "http://localhost:8080",
         ]
 
-        app.add_middleware(
+        self.add_middleware(
             middleware_class=CORSMiddleware,
             allow_credentials=True,
             allow_origins=origins,
@@ -75,12 +80,12 @@ class API:
         )
 
         # NOTE:: Enable this if it need to be exposed to the WAN
-        # app.add_middleware(
+        # self.add_middleware(
         #     # Ensures all trafic to server is ssl encrypted or is rederected to https / wss
         #     middleware_class=HTTPSRedirectMiddleware
         # )
 
-    def use_route_names_as_operation_ids(self,app: FastAPI) -> None:
+    def use_route_names_as_operation_ids(self) -> None:
         """
         Simplify operation IDs so that generated API clients have simpler function
         names.
@@ -89,7 +94,7 @@ class API:
         """
         route_names = set()
         route_prefix = set()
-        for route in app.routes:
+        for route in self.routes:
             if isinstance(route, APIRoute):
                 if route.name in route_names:
                     raise Exception(f"Route function names {[route.name]} should be unique")
@@ -99,7 +104,7 @@ class API:
                 route_names.add(route.name)
                 route_prefix.add(route.path)
 
-    def include_router_from_module(self,app : FastAPI, module_name: str):
+    def include_router_from_module(self, module_name: str):
         """
         Import module and check if it contains 'router' attribute.
         if it does include the route in the fastapi app 
@@ -107,7 +112,7 @@ class API:
         try:
             module = importlib.import_module(module_name)
             if hasattr(module, 'router') and hasattr(module, 'dependency'):
-                app.include_router(
+                self.include_router(
                     router=module.router,
                     dependencies=module.dependency.append(
                         Depends(dependency=log_request_info),
@@ -121,37 +126,35 @@ class API:
         except Exception as e:
             rich.print(f"[red]Module '{module_name}' failed with the following error: {e}[/red]")
 
-    def register_routes(self,app : FastAPI):
+    def register_routes(self):
         """
             Loop a dir for all python files in addons/ dir, 
             and run include_router_from_module()
         """
         addons_dir = configuration.commands_dir
-        base_module = 'addons'
+        addons_dir_name = 'addons'
 
         for root, dirs, files in os.walk(addons_dir):
             for file in files:
                 if file.endswith('.py') and file != '__init__.py':
                     relative_path = os.path.relpath(os.path.join(root, file), addons_dir)
-                    module_name = os.path.join(base_module, relative_path).replace(os.sep, '.')[:-3]
-                    self.include_router_from_module(app=app, module_name=module_name)
+                    module_name = os.path.join(addons_dir_name, relative_path).replace(os.sep, '.')[:-3]
+                    self.include_router_from_module(module_name=module_name)
 
-    def start(self,config : dict):
+    def start(self, config : dict):
         uvicorn.run(
-            app=f"clicx.cli.server:{self.application_name}",
+            app=f"clicx.cli.server:api",
+            lifespan="on",
             host=config.get("host"),
             port=config.get("port"),
-            log_level=config.get("log_level"),
             reload=config.get("reload"),
-            lifespan="on"
         )
 
 
 # This is the name of the application, as seen in the server file.
-# It is needed to be bale to configure workers and set reload=true on unicorn. 
-# The name and api_application.app e.g api_app and name = api_app has to be the same, otherwise the uvicorns lifespan trows and error
-api: API = API("api_app")
-api_app: FastAPI = api.app
+# It is needed to be able to configure workers and set reload=true on uvicorn. 
+# The name and api instance need to match for uvicorn's lifespan to work correctly
+api = API()
 cli = typer.Typer(help="Clicx server application")
 
 
@@ -161,13 +164,14 @@ def server(
     host: Annotated[Optional[str], typer.Option(help='Bind socket to this host')] = "0.0.0.0",
     port: Annotated[Optional[int], typer.Option(help='Bind socket to this port')] = 8000,
     reload: Annotated[Optional[bool], typer.Option(help='Enable auto-reload')] = True,
-    log_level: Annotated[Optional[str], typer.Option(help='Log level')] = logging.INFO,
+    log_level: Annotated[Optional[str], typer.Option(help='Log level')] = None,
     workers: Annotated[Optional[int], typer.Option(help='Number of worker processes')] = None,
     database: Annotated[Optional[str], typer.Option(help="Database name")] = None,
     username: Annotated[Optional[str], typer.Option(help="Database username")] = None,
     database_password: Annotated[Optional[str], typer.Option(help="Database user password")] = None,
     init_database: Annotated[Optional[bool], typer.Option(help='Initialize database')] = False,
     update_database: Annotated[Optional[bool], typer.Option(help="Update database using migrations")] = False,
+    save_config: Annotated[Optional[bool], typer.Option(default="--save",help="Generate config file")] = False,
 ):
     """Start the server application with optional database operations."""
     loaded_conf = {key: value for key, value in locals().items() if value is not None and key != "config_file"}
@@ -194,6 +198,14 @@ def server(
             typer.echo("Updating database using migrations...")
             db_manager.update_database()
             typer.echo("Database updated successfully!")
-    
+
+    if save_config:
+        default_config_path = ".config/clicx/clicx.conf"
+        config_path : Path = Path(Path(__file__).parent.parent, default_config_path)
+        if not os.path.exists(config_path):
+            return
+        # Create/edit config with the loaded config.
+        Ellipsis
+
     # Start the API server
     api.start(config=loaded_conf)

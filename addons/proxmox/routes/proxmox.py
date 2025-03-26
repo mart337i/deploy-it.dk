@@ -122,6 +122,26 @@ async def execute_commands(node: str,vmid: int,file: UploadFile = File(...)) -> 
     
     return {"responses": responses}
 
+@router.get("/resize_disk")
+def resize_disk(node,vm_id,disk,new_size) -> dict[str, dict[str, Any]]:
+    return pve_conn().resize_vm_disk(node=node,vm_id=vm_id,disk=disk,new_size=new_size)
+
+@router.get("/await_task_completion")
+def await_task_completion(node: str, upid: str, timeout: int = 300, interval: int = 5):
+    return pve_conn().await_task_completion(node=node, upid=upid,timeout=timeout,interval=interval)
+
+@router.get("/get_task_status")
+def get_task_status(node: str, upid: str):
+    return pve_conn().get_task_status(node=node, upid=upid)
+
+@router.get("/list_tasks")
+def list_tasks(node: str):
+    return pve_conn().list_tasks(node=node)
+
+@router.get("/get_task_logs")
+def get_task_logs(node: str, upid: str):
+    return pve_conn().get_task_logs(node=node,upid=upid)
+
 @router.get("/list_vms")
 def list_vms(node:str) -> Any:
     return pve_conn().list_vms(node=node)
