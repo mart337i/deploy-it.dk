@@ -1,26 +1,19 @@
-from datetime import datetime
 
 # Third-party imports
-from fastapi.responses import HTMLResponse
 from fastapi.routing import APIRouter
 
 from fastapi.routing import APIRouter
-from fastapi import HTTPException, Request, File, UploadFile
-from typing import Any, Dict
+from fastapi import HTTPException, File, UploadFile
+from typing import Any
 
 from addons.proxmox.schema.virtual_machine import VirtualMachine, VirtualMachineCI
 from addons.proxmox.schema.bash import BashCommand
-from addons.proxmox.schema.lxc import Container
 
-from addons.proxmox.models.proxmox import proxmox
+from addons.proxmox.models.proxmox import proxmox, TokenAuth
 from addons.proxmox.utils.yml_parser import read as yml_read
 from addons.proxmox.utils.yml_parser import validate as yml_validate
 
-import os
-
-import yaml
-
-from datetime import timedelta
+from clicx.config import configuration
 
 from urllib.parse import quote
 
@@ -32,16 +25,23 @@ router = APIRouter(
 
 dependency = []
 
-def pve_conn() -> proxmox:
-    """
-    Create a connection to proxmox via an api wrapper proxAPI, witch then implements proxmoxer
-    > pve_conn stands for "Proxmox Virtual Environment Connection". 
-    """
-
+def pve_conn(
+    host: str = configuration.env['host'],
+    user: str = configuration.env['user'],
+    token_name: str = configuration.env["token_name"],
+    token_value: str = configuration.env["token_value"],
+    verify_ssl: bool = False,
+    auth_type: str = "token",
+):
     return proxmox(
-        host=f"{os.getenv('ProxHost')}",
-        user=f"{os.getenv('ProxUserPAM')}",
-        password=f"{os.getenv('ProxPasswordPAM')}",
+        **vars(TokenAuth(
+            host=host,
+            user=user,
+            token_name=token_name,
+            token_value=token_value,
+            verify_ssl=verify_ssl,
+            auth_type=auth_type,
+        ))
     )
 
 @router.get(path="/get_vm_ids")

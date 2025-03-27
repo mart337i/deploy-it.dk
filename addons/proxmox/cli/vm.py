@@ -1,6 +1,7 @@
 # OS
 import os
 from typing import Optional, List
+from pathlib import Path
 
 # Third party imports
 import rich
@@ -10,21 +11,30 @@ import typer
 from typing_extensions import Annotated
 
 # Local imports
-from addons.proxmox.models.proxmox import proxmox
+from addons.proxmox.models.proxmox import proxmox,TokenAuth
+from clicx.config import configuration
 
 console = Console()
 app = typer.Typer(help="Virtual machine management")
 
 
-def pve_conn() -> proxmox:
-    """
-    Create a connection to proxmox via an api wrapper proxAPI, which then implements proxmoxer
-    > pve_conn stands for "Proxmox Virtual Environment Connection".
-    """
+def pve_conn(
+    host: str = configuration.env['host'],
+    user: str = configuration.env['user'],
+    token_name: str = configuration.env["token_name"],
+    token_value: str = configuration.env["token_value"],
+    verify_ssl: bool = False,
+    auth_type: str = "token",
+):
     return proxmox(
-        host=f"{os.getenv('ProxHost')}",
-        user=f"{os.getenv('ProxUserPAM')}",
-        password=f"{os.getenv('ProxPasswordPAM')}",
+        **vars(TokenAuth(
+            host=host,
+            user=user,
+            token_name=token_name,
+            token_value=token_value,
+            verify_ssl=verify_ssl,
+            auth_type=auth_type,
+        ))
     )
 
 
@@ -390,3 +400,13 @@ def hostname_map():
         )
     
     console.print(table)
+
+
+@app.command()
+def add_ssh(
+    node,
+    vmid,
+    key : Path = typer.Option("key" ,help="ssh public key file")
+):
+    # TODO Finish command
+    ...

@@ -7,7 +7,8 @@ import rich
 import typer
 
 # Local imports
-from clicx.config import addons, configuration
+from clicx.config import configuration
+from clicx import addons
 from clicx.cli.server import cli as server_cli
 
 cli = typer.Typer(help="Clicx CLI application")

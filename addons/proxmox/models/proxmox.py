@@ -2,7 +2,11 @@ from typing import Dict, Any, List, Optional, Union
 from proxmoxer import ProxmoxAPI
 from proxmoxer.core import ResourceException
 from clicx.utils.security import _generate_password
+from clicx.utils.exceptions import SleepyDeveloperError
+from pydantic import BaseModel
 import time
+from enum import Enum
+from pydantic import BaseModel
 
 import logging
 _logger = logging.getLogger("proxmox")
@@ -11,10 +15,38 @@ _logger = logging.getLogger("proxmox")
 # MARK: Class Definition and Initialization
 #######################
 
+class Authtype(str,Enum):
+    token="token"
+    password="password"
+
+class BackendType(str,Enum):
+        local = "local"
+        https = "https"
+        openssh = "openssh"
+        ssh_paramiko = "ssh_paramiko"
+
+class TokenAuth(BaseModel):
+    host : str
+    user : str
+    token_name : str
+    token_value : str
+    verify_ssl : bool
+    auth_type : str
+
 class proxmox:
     """Base class for interacting with Proxmox VE via the proxmoxer API."""
-    
-    def __init__(self, host: str, user: str, password: str, verify_ssl: bool = True):
+
+    def __init__(
+            self,
+            host: str,
+            auth_type : Authtype, 
+            user : str,
+            token_name = False,
+            token_value = False,
+            password = False,
+            backend : BackendType ="https",
+            verify_ssl = False
+        ):
         """
         Initialize the proxmox class.
         
@@ -24,16 +56,27 @@ class proxmox:
             password: Password for authentication
             verify_ssl: Whether to verify SSL certificates (default: True)
         """
-        self._proxmoxer = ProxmoxAPI(
-            host=host, 
-            user=user, 
-            password=password, 
-            verify_ssl=verify_ssl
-        )
-        
-        if not verify_ssl:
-            _logger.warning("SSL verification disabled - this is insecure in production environments")
 
+        if auth_type == Authtype.token:
+            self._proxmoxer = ProxmoxAPI(
+                host=host,
+                backend = backend,
+                user=user,
+                token_name = token_name,
+                token_value=token_value,
+                verify_ssl=verify_ssl
+            )
+        elif auth_type == Authtype.password:
+            self._proxmoxer = ProxmoxAPI(
+                host=host,
+                backend = backend,
+                user = user,
+                password=password,
+                verify_ssl=verify_ssl
+            )
+        else: 
+            raise SleepyDeveloperError("missing auth type")
+        
         self._host = host
 
     @property
@@ -522,4 +565,35 @@ class proxmox:
     def list_resources(self, **kwargs) -> List[Dict[str, Any]]:
         """List all resources."""
         return self._proxmoxer.cluster.resources.get(**kwargs)
+    
+    def get_iso_storage(self, node):
+        storages = self._proxmoxer.nodes(node).storage.get()
+        iso_storages = [
+            storage for storage in storages 
+            if 'content' in storage and 'iso' in storage['content'].split(',')
+        ]
+        
+        return iso_storages
 
+    def get_iso_files(self, node):
+        all_isos = []
+        
+        iso_storages = self.get_iso_storage(node)
+        
+        for storage in iso_storages:
+            storage_id = storage['storage']
+            
+            try:
+                isos = self._proxmoxer.nodes(node).storage(storage_id).content.get(content='iso')
+                
+                for iso in isos:
+                    iso['storage_name'] = storage_id
+                
+                all_isos.extend(isos)
+            except Exception as e:
+                print(f"Warning: Could not get ISOs from storage '{storage_id}': {str(e)}")
+        
+        return all_isos
+
+    def get_storage(self, node, **kwargs):
+        return self._proxmoxer.nodes(node).storage.get()

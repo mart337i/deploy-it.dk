@@ -134,7 +134,7 @@ class API(FastAPI):
             Loop a dir for all python files in addons/ dir, 
             and run include_router_from_module()
         """
-        addons_dir = configuration.commands_dir
+        addons_dir = configuration.addons
         addons_dir_name = 'addons'
 
         for root, dirs, files in os.walk(addons_dir):
@@ -151,5 +151,10 @@ class API(FastAPI):
             host=config.get("host"),
             port=config.get("port"),
             reload=config.get("reload"),
+            timeout_keep_alive=10
         )
 
+# This is the name of the application, as seen in the server file.
+# It is needed to be able to configure workers and set reload=true on uvicorn. 
+# The name and api instance need to match for uvicorn's lifespan to work correctly
+api : API = API()

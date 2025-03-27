@@ -5,15 +5,11 @@ from typing import Annotated, Optional
 import typer
 
 # Local application imports
-from clicx.server import API
+from clicx.server import api
 
 import logging
 _logger = logging.getLogger("app")
 
-# This is the name of the application, as seen in the server file.
-# It is needed to be able to configure workers and set reload=true on uvicorn. 
-# The name and api instance need to match for uvicorn's lifespan to work correctly
-api = API()
 cli = typer.Typer(help="Clicx server application")
 
 
@@ -27,5 +23,4 @@ def server(
 ):
     """Start the server application with optional database operations."""
     loaded_conf = {key: value for key, value in locals().items() if value is not None and key}
-
     api.start(config=loaded_conf)

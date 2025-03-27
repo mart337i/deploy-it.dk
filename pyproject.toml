@@ -31,6 +31,7 @@ cryptography = "^44.0.2"
 sqlalchemy = "^2.0.39"
 setuptools = "58.2.0"
 sqlalchemy-utils = "^0.41.2"
+requests = "^2.32.3"
 
 
 [build-system]
