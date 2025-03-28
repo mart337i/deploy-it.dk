@@ -406,7 +406,19 @@ def hostname_map():
 def add_ssh(
     node,
     vmid,
-    key : Path = typer.Option("key" ,help="ssh public key file")
+    key,
 ):
-    # TODO Finish command
-    ...
+    res = pve_conn().add_ssh(node,vmid,key)
+    rich.print(res)
+    return res
+
+@app.command()
+def get_exec_status(
+    node,
+    vmid,
+    pid
+):
+    res = pve_conn().get_exec_status(node,vmid,pid)
+    rich.print(res)
+    return res
+

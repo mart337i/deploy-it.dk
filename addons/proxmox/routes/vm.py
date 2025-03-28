@@ -15,8 +15,6 @@ from addons.proxmox.utils.yml_parser import validate as yml_validate
 
 from clicx.config import configuration
 
-from urllib.parse import quote
-
 
 router = APIRouter(
     prefix=f"/proxmox/v1/vm",
@@ -65,13 +63,12 @@ def create_vm(node: str, vm_config: VirtualMachine):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/create-vm-pre-config/")
-def create_vm_pre_config(node: str, sshkeys : str, vm_config: VirtualMachineCI):
+def create_vm_pre_config(node: str, vm_config: VirtualMachineCI):
     """
     This medthod utilizes Cloud init for base configureing the VM
     """
     try:
-        sshkeys = quote(sshkeys, safe='')
-        vm = pve_conn().create_vm_pre_config(node=node,sshkeys=sshkeys,config=vm_config.model_dump())
+        vm = pve_conn().create_vm_pre_config(node=node,config=vm_config.model_dump())
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating VM: {e}")
     return vm

@@ -1,12 +1,16 @@
 from typing import Dict, Any, List, Optional, Union
 from proxmoxer import ProxmoxAPI
+from proxmoxer.tools.tasks import Tasks
 from proxmoxer.core import ResourceException
+import urllib3.util
 from clicx.utils.security import _generate_password
 from clicx.utils.exceptions import SleepyDeveloperError
 from pydantic import BaseModel
 import time
-from enum import Enum
+from enum import Enum, IntEnum
 from pydantic import BaseModel
+from urllib.parse import quote, quote_plus
+
 
 import logging
 _logger = logging.getLogger("proxmox")
@@ -33,6 +37,14 @@ class TokenAuth(BaseModel):
     verify_ssl : bool
     auth_type : str
 
+class StatusCode(IntEnum):
+    sucess = 0
+    failure = 1
+    def __str__(self):
+        return f"{self.value}"
+    def __repr__(self):
+        return f"{self.value}"
+        
 class proxmox:
     """Base class for interacting with Proxmox VE via the proxmoxer API."""
 
@@ -105,52 +117,48 @@ class proxmox:
         """
         return self._proxmoxer.nodes(node).qemu.create(**config)
     
-    def create_vm_pre_config(self, node: str, sshkeys: str, config: Dict[str, Any]) -> Dict[str, Any]:
-        config = config.get('config', {})
+    def create_vm_pre_config(self, node: str, config: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Creates a virtual machine on the specified Proxmox node using the provided configuration.
 
+        Args:
+            node (str): The Proxmox node where the VM will be created.
+            config (Dict[str, Any]): Configuration parameters for the VM.
+
+        Returns:
+            Dict[str, Any]: Information about the created VM and associated task.
+        """
+        ssh_key = config.get('sshkeys')
+        if ssh_key:
+            if not ssh_key.startswith(('ssh-rsa', 'ssh-ed25519', 'ssh-dss', 'ecdsa-sha2')):
+                raise ValueError("Key missing type like ssh-rsa or ssh-ed25519 in key string")
+            key = ssh_key
+            config['sshkeys'] = quote(key,safe='')
+
+        # raise ValueError(f"{config['sshkeys']}, key {key}")
+
+        # Generate a unique VM ID if not provided
         if not config.get('vmid'):
             config['vmid'] = self._proxmoxer.cluster.nextid.get()
+
         vm_id = config['vmid']
-
-        # Generate a secure password if not provided
-        if not config.get('cipassword'):
-            config['cipassword'] = _generate_password()
-            _logger.info(f"Generated secure password for VM {config.get('vmid')}")
-
-        default_values = {
-            'name': f"vm-{vm_id}",
-        }
-        
-        # Merge defaults with provided config
-        vm_params = {**default_values, **config}
-
-        # NOTE: It's very important that sshkeys are placed after the ciuser
-        # because if placed under cicustom it will be set on the root user
-        # as cicustom is executed as root. It would therefore set ssh keys for root instead of the user.
-        vm_params['sshkeys'] = sshkeys
-        
-        vm = self._proxmoxer.nodes(node).qemu.create(
-            vmid=vm_id,
-            **vm_params
-        )
-        _logger.debug(f"VM creation task: {vm} for VM ID: {vm_id}")
-
-        # Resize disk
         try:
-            self.await_function_completion(self.resize_vm_disk,(node,vm_id,vm_params['scsi0'],vm_params['disk_size']))
+            # Create the VM using Proxmoxer
+            task = self._proxmoxer.nodes(node).qemu.create(**config)
+            Tasks.blocking_status(self._proxmoxer,task)
+            _logger.info(f"VM creation initiated for VM ID: {vm_id}")
         except Exception as e:
-            _logger.error(f"Error resizing disk for VM {vm_id}: {e}")
+            _logger.error(f"Failed to create VM {vm_id}: {e}")
             raise
 
         return {
-            "task":{
-                "taskID": vm,
+            "task": {
+                "taskID": task,
             },
-            "vm" : {
+            "vm": {
                 "id": vm_id,
             }
         }
-
 #######################
 # MARK:VM Management
 #######################
@@ -360,6 +368,9 @@ class proxmox:
         """
         Execute a command on a VM using the QEMU agent.
         
+        NOTE: To execute a sell command the command argument should start with `/bin/sh -c "echo test > /test.file"`
+        See: https://forum.proxmox.com/threads/how-to-create-or-edit-file-with-qm-guest-agent.89759/
+
         Args:
             node: Node name
             vmid: VM ID
@@ -416,17 +427,17 @@ class proxmox:
         try:
             response = self._proxmoxer.nodes(node).qemu(vm_id).agent.post('ping')
             return {
-                'status_code': 1,
+                'status_code': StatusCode.sucess,
                 'error_msg': response
             }
         except ResourceException as e:
             return {
-                'status_code': 0,
+                'status_code': StatusCode.failure,
                 'error_msg': str(e)
             }
         except Exception as e:
             return {
-                'status_code': -1,
+                'status_code': StatusCode.failure,
                 'error_msg': str(e)
             }
     
@@ -597,3 +608,45 @@ class proxmox:
 
     def get_storage(self, node, **kwargs):
         return self._proxmoxer.nodes(node).storage.get()
+
+    def add_ssh(self,node,vmid,key):
+        ssh_content = ""
+        with open(key,"r") as content:
+            ssh_content = content.read()
+
+            
+        try:
+            response = self._proxmoxer.nodes(node).qemu(vmid).agent('file-write').post(content=ssh_content,file="/home/sysadmin/.ssh/authorized_keys",node=node,vmid=vmid)
+            return {
+                'status_code': StatusCode.sucess,
+                'msg': response
+            }
+        except ResourceException as e:
+            return {
+                'status_code': StatusCode.failure,
+                'error_msg': str(e)
+            }
+        except Exception as e:
+            return {
+                'status_code': StatusCode.failure,
+                'error_msg': str(e)
+            }
+        
+    def get_exec_status(self,node,vmid,pid):
+
+        try:
+            response = self._proxmoxer.nodes(node).qemu(vmid).agent('exec-status').get(pid=pid)
+            return {
+                'status_code': StatusCode.sucess,
+                'msg': response
+            }
+        except ResourceException as e:
+            return {
+                'status_code': StatusCode.failure,
+                'error_msg': str(e)
+            }
+        except Exception as e:
+            return {
+                'status_code': StatusCode.failure,
+                'error_msg': str(e)
+            }

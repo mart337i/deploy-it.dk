@@ -39,28 +39,3 @@ def pve_conn(
         ))
     )
     
-@app.command(help="Install docker on a given Vm")
-def install_docker(
-    node,
-    vmid
-):
-
-    commands_string = render("install_docker_engine.yml")
-    yml_loaded_commands = safe_load(commands_string)
-    responses = []
-    for command in yml_loaded_commands['SetUpDocker-24.04'].get("commands"):
-        try:
-            response = pve_conn().execute_command(node=node, vmid=vmid, command=command)
-            responses.append({
-                "command": command,
-                "status": "success",
-                "response": response
-            })
-        except Exception as e:
-            responses.append({
-                "command": command,
-                "status": "error",
-                "error": str(e)
-            })
-    
-    rich.print(responses)
