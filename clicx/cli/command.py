@@ -9,10 +9,10 @@ import typer
 # Local imports
 from clicx.config import configuration
 from clicx import addons
-from clicx.cli.server import cli as server_cli
+from clicx.cli.server import cli as server
 
 cli = typer.Typer(help="Clicx CLI application")
-cli.add_typer(server_cli)
+cli.add_typer(server)
 
 def discover_commands(commands_dir: Path):
     """Discover and register commands from CLI directories"""
