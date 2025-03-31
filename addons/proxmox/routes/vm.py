@@ -6,7 +6,7 @@ from fastapi.routing import APIRouter
 from fastapi import HTTPException, File, UploadFile
 from typing import Any
 
-from addons.proxmox.schema.virtual_machine import VirtualMachine, VirtualMachineCI
+from addons.proxmox.schema.vm import VirtualMachine, VirtualMachineCI
 from addons.proxmox.schema.bash import BashCommand
 
 from addons.proxmox.models.proxmox import proxmox, TokenAuth
