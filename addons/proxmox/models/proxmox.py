@@ -2,9 +2,11 @@ from typing import Dict, Any, List, Optional, Union
 from proxmoxer import ProxmoxAPI
 from proxmoxer.tools.tasks import Tasks
 from proxmoxer.core import ResourceException
+from proxmoxer.backends.https import Backend
 import urllib3.util
 from clicx.utils.security import _generate_password
 from clicx.utils.exceptions import SleepyDeveloperError
+from clicx.config import configuration
 from pydantic import BaseModel
 import time
 from enum import Enum, IntEnum
@@ -44,7 +46,7 @@ class StatusCode(IntEnum):
         return f"{self.value}"
     def __repr__(self):
         return f"{self.value}"
-        
+    
 class proxmox:
     """Base class for interacting with Proxmox VE via the proxmoxer API."""
 
@@ -90,6 +92,7 @@ class proxmox:
             raise SleepyDeveloperError("missing auth type")
         
         self._host = host
+        self.available_nodes = list(configuration.loaded_config.get("available_nodes"))
 
     @property
     def host(self) -> str:
