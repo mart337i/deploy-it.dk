@@ -39,43 +39,6 @@ def pve_conn(
 
 
 @app.command()
-def create(
-    node: str = typer.Option(..., "--node", "-n", help="Node name"),
-    name: str = typer.Option(..., "--name", help="VM name"),
-    disk_size: str = typer.Option("10G", "--disk-size", "-d", help="Disk size (e.g., '10G')"),
-    memory: int = typer.Option(1024, "--memory", "-m", help="Memory in MB"),
-    cores: int = typer.Option(1, "--cores", "-c", help="Number of CPU cores"),
-    sshkeys: str = typer.Option(None, "--sshkeys", help="SSH public keys (comma-separated or path to file)"),
-    password: str = typer.Option(None, "--password", help="VM password (if not specified, will be generated)"),
-    storage: str = typer.Option("local-lvm", "--storage", help="Storage location"),
-    ostype: str = typer.Option("l26", "--ostype", help="OS type"),
-):
-    """Create a new virtual machine."""
-    config = {
-        'name': name,
-        'cores': cores,
-        'memory': memory,
-        'ostype': ostype,
-        'scsi0': f"{storage}:0,size={disk_size}",
-        'disk_size': disk_size,
-    }
-    
-    if password:
-        config['cipassword'] = password
-        
-    # Load SSH keys from file if path is provided
-    if sshkeys and os.path.isfile(sshkeys):
-        with open(sshkeys, "r") as f:
-            sshkeys = f.read().strip()
-    
-    # Call the existing method
-    result = pve_conn().create_vm_pre_config(node=node, sshkeys=sshkeys, config={'config': config})
-    console.print(f"[bold green]VM created successfully![/bold green]")
-    console.print(f"VM ID: {result['vm']['id']}")
-    console.print(f"Task ID: {result['task']['taskID']}")
-
-
-@app.command()
 def list_vms(
     node: str = typer.Option(..., "--node", "-n", help="Node name"),
     detailed: bool = typer.Option(False, "--detailed", "-d", help="Show detailed information"),
@@ -332,32 +295,6 @@ def execute_vm_command(
     result = pve_conn().execute_command(node=node, vmid=vmid, command=command)
     console.print(f"[bold blue]Command execution result:[/bold blue]")
     console.print(result)
-
-
-@app.command()
-def network_info(
-    node: str = typer.Option(..., "--node", "-n", help="Node name"),
-    vmid: str = typer.Option(..., "--vmid", "-v", help="VM ID"),
-):
-    """Get network settings for a VM."""
-    network = pve_conn().get_network_setting_vm(node=node, vmid=vmid)
-    
-    table = Table(title=f"Network settings for VM {vmid}")
-    table.add_column("Interface")
-    table.add_column("MAC")
-    table.add_column("IP Address")
-    table.add_column("Type")
-    
-    for interface in network.get('result', []):
-        for ip in interface.get('ip-addresses', []):
-            table.add_row(
-                interface.get('name', ''),
-                interface.get('hardware-address', ''),
-                ip.get('ip-address', ''),
-                ip.get('ip-address-type', '')
-            )
-    
-    console.print(table)
 
 
 @app.command()

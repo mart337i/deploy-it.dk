@@ -1,0 +1,10 @@
+{
+    "vm_configurations" : {
+        "default" : {
+            "name" : "default vm config",
+            "desc" : "123",
+            "template_id" : 8000,
+            "disk": "scsi0"
+        }
+    }
+}

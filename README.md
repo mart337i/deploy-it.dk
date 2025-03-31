@@ -26,3 +26,7 @@ pip install -e .
 - All .json files will be loaded if they are loacted in the addons folder
 - All Commands will be loaded in the cli dir inside addons folder (app = typer.Typer(help="Test commands")) Use app as the varibale name, other wise it dosent work.
 - All Routes will be loaded inside the addons folder (router = APIRouter()) use router, other wise it donsent work. 
+
+
+## Thanks to: 
+- This blog: https://technotim.live/posts/cloud-init-cloud-image/
