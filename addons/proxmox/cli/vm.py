@@ -19,10 +19,10 @@ app = typer.Typer(help="Virtual machine management")
 
 
 def pve_conn(
-    host: str = configuration.env['host'],
-    user: str = configuration.env['user'],
-    token_name: str = configuration.env["token_name"],
-    token_value: str = configuration.env["token_value"],
+    host: str = configuration.loaded_config['host'],
+    user: str = configuration.loaded_config['user'],
+    token_name: str = configuration.loaded_config["token_name"],
+    token_value: str = configuration.loaded_config["token_value"],
     verify_ssl: bool = False,
     auth_type: str = "token",
 ):
@@ -36,43 +36,6 @@ def pve_conn(
             auth_type=auth_type,
         ))
     )
-
-
-@app.command()
-def create(
-    node: str = typer.Option(..., "--node", "-n", help="Node name"),
-    name: str = typer.Option(..., "--name", help="VM name"),
-    disk_size: str = typer.Option("10G", "--disk-size", "-d", help="Disk size (e.g., '10G')"),
-    memory: int = typer.Option(1024, "--memory", "-m", help="Memory in MB"),
-    cores: int = typer.Option(1, "--cores", "-c", help="Number of CPU cores"),
-    sshkeys: str = typer.Option(None, "--sshkeys", help="SSH public keys (comma-separated or path to file)"),
-    password: str = typer.Option(None, "--password", help="VM password (if not specified, will be generated)"),
-    storage: str = typer.Option("local-lvm", "--storage", help="Storage location"),
-    ostype: str = typer.Option("l26", "--ostype", help="OS type"),
-):
-    """Create a new virtual machine."""
-    config = {
-        'name': name,
-        'cores': cores,
-        'memory': memory,
-        'ostype': ostype,
-        'scsi0': f"{storage}:0,size={disk_size}",
-        'disk_size': disk_size,
-    }
-    
-    if password:
-        config['cipassword'] = password
-        
-    # Load SSH keys from file if path is provided
-    if sshkeys and os.path.isfile(sshkeys):
-        with open(sshkeys, "r") as f:
-            sshkeys = f.read().strip()
-    
-    # Call the existing method
-    result = pve_conn().create_vm_pre_config(node=node, sshkeys=sshkeys, config={'config': config})
-    console.print(f"[bold green]VM created successfully![/bold green]")
-    console.print(f"VM ID: {result['vm']['id']}")
-    console.print(f"Task ID: {result['task']['taskID']}")
 
 
 @app.command()
@@ -335,32 +298,6 @@ def execute_vm_command(
 
 
 @app.command()
-def network_info(
-    node: str = typer.Option(..., "--node", "-n", help="Node name"),
-    vmid: str = typer.Option(..., "--vmid", "-v", help="VM ID"),
-):
-    """Get network settings for a VM."""
-    network = pve_conn().get_network_setting_vm(node=node, vmid=vmid)
-    
-    table = Table(title=f"Network settings for VM {vmid}")
-    table.add_column("Interface")
-    table.add_column("MAC")
-    table.add_column("IP Address")
-    table.add_column("Type")
-    
-    for interface in network.get('result', []):
-        for ip in interface.get('ip-addresses', []):
-            table.add_row(
-                interface.get('name', ''),
-                interface.get('hardware-address', ''),
-                ip.get('ip-address', ''),
-                ip.get('ip-address-type', '')
-            )
-    
-    console.print(table)
-
-
-@app.command()
 def node_network(
     node: str = typer.Option(..., "--node", "-n", help="Node name"),
 ):
@@ -406,7 +343,20 @@ def hostname_map():
 def add_ssh(
     node,
     vmid,
-    key : Path = typer.Option("key" ,help="ssh public key file")
+    username,
+    key,
 ):
-    # TODO Finish command
-    ...
+    res = pve_conn().add_ssh(node=node,vmid=vmid,username=username,key=key)
+    rich.print(res)
+    return res
+
+@app.command()
+def get_exec_status(
+    node,
+    vmid,
+    pid
+):
+    res = pve_conn().get_exec_status(node,vmid,pid)
+    rich.print(res)
+    return res
+

@@ -21,10 +21,10 @@ console = Console()
 app = typer.Typer(help="Setup and test tools for proxmomx")
 
 def pve_conn(
-    host: str = configuration.env['host'],
-    user: str = configuration.env['user'],
-    token_name: str = configuration.env["token_name"],
-    token_value: str = configuration.env["token_value"],
+    host: str = configuration.loaded_config['host'],
+    user: str = configuration.loaded_config['user'],
+    token_name: str = configuration.loaded_config["token_name"],
+    token_value: str = configuration.loaded_config["token_value"],
     verify_ssl: bool = False,
     auth_type: str = "token",
 ):
@@ -39,28 +39,3 @@ def pve_conn(
         ))
     )
     
-@app.command(help="Install docker on a given Vm")
-def install_docker(
-    node,
-    vmid
-):
-
-    commands_string = render("install_docker_engine.yml")
-    yml_loaded_commands = safe_load(commands_string)
-    responses = []
-    for command in yml_loaded_commands['SetUpDocker-24.04'].get("commands"):
-        try:
-            response = pve_conn().execute_command(node=node, vmid=vmid, command=command)
-            responses.append({
-                "command": command,
-                "status": "success",
-                "response": response
-            })
-        except Exception as e:
-            responses.append({
-                "command": command,
-                "status": "error",
-                "error": str(e)
-            })
-    
-    rich.print(responses)

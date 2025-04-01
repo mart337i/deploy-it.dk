@@ -1,12 +1,18 @@
 from typing import Dict, Any, List, Optional, Union
 from proxmoxer import ProxmoxAPI
+from proxmoxer.tools.tasks import Tasks
 from proxmoxer.core import ResourceException
-from clicx.utils.security import _generate_password
+from proxmoxer.backends.https import Backend
+import urllib3.util
 from clicx.utils.exceptions import SleepyDeveloperError
+from clicx.config import configuration
+from clicx.utils.security import _generate_password
 from pydantic import BaseModel
 import time
-from enum import Enum
+from enum import Enum, IntEnum
 from pydantic import BaseModel
+from urllib.parse import quote, quote_plus
+
 
 import logging
 _logger = logging.getLogger("proxmox")
@@ -33,6 +39,24 @@ class TokenAuth(BaseModel):
     verify_ssl : bool
     auth_type : str
 
+class StatusCode(IntEnum):
+    sucess = 0
+    failure = 1
+    def __str__(self):
+        return f"{self.value}"
+    def __repr__(self):
+        return f"{self.value}"
+    
+class QemuStatus(str,Enum):
+    running = "Running"
+    pending = "Pending"
+    failure = "Failure"
+    
+    def __str__(self):
+        return f"{self.value}"
+    def __repr__(self):
+        return f"{self.value}"
+    
 class proxmox:
     """Base class for interacting with Proxmox VE via the proxmoxer API."""
 
@@ -78,6 +102,7 @@ class proxmox:
             raise SleepyDeveloperError("missing auth type")
         
         self._host = host
+        self.available_nodes = list(configuration.loaded_config.get("available_nodes"))
 
     @property
     def host(self) -> str:
@@ -92,96 +117,90 @@ class proxmox:
 #######################
 # MARK: VM Creation and Configuration
 #######################
-    def create_vm(self, node: str, config: Dict[str, Any]) -> str:
-        """
-        Create a virtual machine with the given configuration.
-        
-        Args:
-            node: Node name
-            config: VM configuration parameters
-            
-        Returns:
-            Task ID for the creation task
-        """
-        return self._proxmoxer.nodes(node).qemu.create(**config)
-    
-    def create_vm_pre_config(self, node: str, sshkeys: str, config: Dict[str, Any]) -> Dict[str, Any]:
-        config = config.get('config', {})
 
-        if not config.get('vmid'):
-            config['vmid'] = self._proxmoxer.cluster.nextid.get()
-        vm_id = config['vmid']
+    def clone_vm(self, node: str, config: Dict[str, Any]) -> str:
+        tasks = []
+        msg = []
+        new_vmid = self.get_next_available_vm_id()
 
-        # Generate a secure password if not provided
-        if not config.get('cipassword'):
-            config['cipassword'] = _generate_password()
-            _logger.info(f"Generated secure password for VM {config.get('vmid')}")
+        available_configuration = configuration.loaded_config.get('vm_configurations')
+        chosen_vm_config = available_configuration.get(str(config.get('vmid')))
+        clone_id = config.get('vmid')
 
-        default_values = {
-            'name': f"vm-{vm_id}",
-        }
-        
-        # Merge defaults with provided config
-        vm_params = {**default_values, **config}
+        if not chosen_vm_config:
+            clone_id = '9000'
+            chosen_vm_config = available_configuration.get(clone_id)
+            error = f"Unable to determine template id. Defaulted to template_id {clone_id}"
+            msg.append(error)
 
-        # NOTE: It's very important that sshkeys are placed after the ciuser
-        # because if placed under cicustom it will be set on the root user
-        # as cicustom is executed as root. It would therefore set ssh keys for root instead of the user.
-        vm_params['sshkeys'] = sshkeys
-        
-        vm = self._proxmoxer.nodes(node).qemu.create(
-            vmid=vm_id,
-            **vm_params
+        disk_size = chosen_vm_config['hardware'].get("disksize")
+        disk = chosen_vm_config['hardware'].get("disk")
+        ssh_key = config.get("sshkeys")
+
+        if not disk and not disk_size:
+            disk = 'scsi0'
+            disk_size = 30
+            error = f"Unable to define disk and disk size. Defaulted to disk {disk} and disksize {disk_size}"
+            _logger.error(error)
+            msg.append(error)
+
+        if not ssh_key: 
+            raise ValueError("No ssh key found, Unable to create Vm without it.")
+
+        ssh = quote(config.get("sshkeys"),'')
+
+        clone_vm = self._proxmoxer.nodes(node).qemu(clone_id).clone.create(
+            newid=new_vmid,
+            name=config.get("name"),
+            full=1  # full clone; change to 0 for linked clone if desired.
         )
-        _logger.debug(f"VM creation task: {vm} for VM ID: {vm_id}")
 
-        # Resize disk
-        try:
-            self.await_function_completion(self.resize_vm_disk,(node,vm_id,vm_params['scsi0'],vm_params['disk_size']))
-        except Exception as e:
-            _logger.error(f"Error resizing disk for VM {vm_id}: {e}")
-            raise
+        tasks.append(self.blocking_status(node=node,task_id=clone_vm))
+        password = "passwordpassword" # _generate_password(30)
+        self._proxmoxer.nodes(node).qemu(new_vmid).config.put(
+            ciuser = config.get("ciuser"),
+            cipassword = password,
+            sshkeys = ssh,
+        )
+
+        
+        self.resize_vm_disk(node=node,vm_id=new_vmid,disk=disk,new_size=f'{disk_size}G')
+        self._proxmoxer.nodes(node).qemu(new_vmid).status.start.post()
 
         return {
-            "task":{
-                "taskID": vm,
-            },
+            "tasks" : tasks,
+            "msg":msg,
             "vm" : {
-                "id": vm_id,
+                "vmid": new_vmid,
+                "user" : config.get("ciuser"),
+                "password" : password
             }
         }
+    
+    def create_vm(self, node: str, config: Dict[str, Any]) -> str:
+        return self._proxmoxer.nodes(node).qemu.create(**config)
+    
+    def get_all_configurations(self):
+        return configuration.loaded_config.get("vm_configurations")
 
 #######################
 # MARK:VM Management
 #######################
 
-    def resize_vm_disk(self, node,vm_id,disk,new_size):
-        try:
-            res = self._proxmoxer.nodes(node).qemu(vm_id).resize.put(disk=disk, size=new_size)
-            self.await_task_completion(node, res)
-        except Exception as e:
-            _logger.error(f"Error resizing disk for VM {vm_id}: {e}")
-            raise
-
-        return {
-            "vm" : {
-                "id": vm_id,
-                "taskID": res,
-                "disk_size": new_size
-            }
-        }
+    def resize_vm_disk(self,node,vm_id,disk,new_size):
+        return self._proxmoxer.nodes(node).qemu(vm_id).resize.put(disk=disk, size=new_size)
 
     def list_vms(self, node: str, **kwargs) -> List[Dict[str, Any]]:
         """List all VMs on a node."""
         return self._proxmoxer.nodes(node).qemu.get(**kwargs)
+    
+    def ping_qemu(self, node: str, vmid: int, **kwargs) -> List[Dict[str, Any]]:
+        """Ping QEMU agent for a specific VM."""
+        return self._proxmoxer.nodes(node).qemu(vmid).agent.ping.post()
 
     def delete_vm(self, node: str, vmid: str, **kwargs) -> Dict[str, Any]:
         """Delete a VM."""
         return self._proxmoxer.nodes(node).qemu(vmid).delete(**kwargs)
-
-    def clone_vm(self, node: str, vmid: str, newid: str, **kwargs) -> Dict[str, Any]:
-        """Clone a VM."""
-        return self._proxmoxer.nodes(node).qemu(vmid).clone.post(newid=newid, **kwargs)
 
     def start_vm(self, node: str, vmid: str, **kwargs) -> Dict[str, Any]:
         """Start a VM."""
@@ -271,65 +290,19 @@ class proxmox:
 #######################
 # MARK: Task Management
 #######################
-    def await_task_completion(self, node: str, upid: str, timeout: int = 300, interval: int = 5) -> Dict[str, Any]:
-        """
-        Wait for a task to complete.
-        
-        Args:
-            node: Node name
-            upid: Task ID
-            timeout: Maximum time to wait in seconds
-            interval: Time between checks in seconds
-            
-        Returns:
-            Final task status
-            
-        Raises:
-            TimeoutError: If the task does not complete within timeout
-        """
-        start_time = time.time()
-        while True:
-            status = self.get_task_status(node, upid)
-            exit_status = status.get('exitstatus', '')
-            
-            if exit_status in ['OK', 'TASK ERROR:']:
-                return status
-                
-            if time.time() - start_time > timeout:
-                raise TimeoutError(f"Task {upid} did not complete within {timeout} seconds")
-                
-            _logger.debug(f"Task status: {status}")
-            time.sleep(interval)
+    def blocking_status(self,node, task_id, timeout=300, polling_interval=1):
+        start_time: float = time.monotonic()
+        data = {"status": ""}
+        while data["status"] != "stopped":
+            data = self._proxmoxer.nodes(node).tasks(task_id).status.get()
+            if isinstance(data,list):
+                break
+            if start_time + timeout <= time.monotonic():
+                data = None  # type: ignore
+                break
 
-    def await_function_completion(func, *args, timeout: int = 300, interval: int = 5, **kwargs) -> Any:
-        """
-        Wait for a function to complete successfully.
-        
-        Args:
-            func: Function to execute and wait for
-            *args: Positional arguments to pass to the function
-            timeout: Maximum time to wait in seconds
-            interval: Time between attempts in seconds
-            **kwargs: Keyword arguments to pass to the function
-            
-        Returns:
-            The return value of the function when successful
-            
-        Raises:
-            TimeoutError: If the function does not complete successfully within timeout
-        """
-        start_time = time.time()
-        
-        while True:
-            try:
-                result = func(*args, **kwargs)
-                return result
-            except Exception as e:
-                if time.time() - start_time > timeout:
-                    raise TimeoutError(f"Function {func.__name__} did not complete successfully within {timeout} seconds") from e
-                
-                _logger.debug(f"Function attempt failed: {str(e)}")
-                time.sleep(interval)
+            time.sleep(polling_interval)
+        return data
 
     def get_task_status(self, node: str, upid: str, **kwargs) -> Dict[str, Any]:
         """
@@ -360,6 +333,9 @@ class proxmox:
         """
         Execute a command on a VM using the QEMU agent.
         
+        NOTE: To execute a sell command the command argument should start with `/bin/sh -c "echo test > /test.file"`
+        See: https://forum.proxmox.com/threads/how-to-create-or-edit-file-with-qm-guest-agent.89759/
+
         Args:
             node: Node name
             vmid: VM ID
@@ -387,14 +363,13 @@ class proxmox:
         elapsed_time = 0
 
         while elapsed_time < timeout:
-            status = self.get_qemu_agent_status(node, vm_id)
-            status_code = status.get('status_code')
-
-            if status_code == 1:
-                return True
-            elif status_code == -1:
-                _logger.error(f"Error checking QEMU agent: {status.get('error_msg')}")
-                return False
+            res = self.get_qemu_agent_status(node, vm_id)
+            
+            if res["status"] == QemuStatus.running:
+                break
+            
+            if res["status"] == QemuStatus.failure:
+                raise ValueError(res["exception"])
 
             time.sleep(interval)
             elapsed_time += interval
@@ -403,37 +378,21 @@ class proxmox:
         return False
 
     def get_qemu_agent_status(self, node: str, vm_id: str) -> Dict[str, Any]:
-        """
-        Get the status of the QEMU agent on a VM.
-        
-        Args:
-            node: Node name
-            vm_id: VM ID
-            
-        Returns:
-            Status information with status_code (1=ready, 0=not ready, -1=error) and error message if applicable
-        """
         try:
-            response = self._proxmoxer.nodes(node).qemu(vm_id).agent.post('ping')
-            return {
-                'status_code': 1,
-                'error_msg': response
-            }
+            self._proxmoxer.nodes(node).qemu(vm_id).agent.post('ping')
+            return {"status" : QemuStatus.running}
         except ResourceException as e:
-            return {
-                'status_code': 0,
-                'error_msg': str(e)
-            }
+            return {"status" : QemuStatus.pending}
         except Exception as e:
             return {
-                'status_code': -1,
-                'error_msg': str(e)
+                'status': QemuStatus.failure,
+                'exception' : e
             }
     
 #######################
 # MARK: Network Management
 #######################
-    def get_vm_ipv4(self, node: str, vmid: str) -> Optional[Dict[str, str]]:
+    def get_vm_ip(self, node: str, vmid: str) -> Optional[Dict[str, str]]:
         """
         Get the IPv4 address of a VM.
         
@@ -449,10 +408,10 @@ class proxmox:
             for interface in vm_status.get("result", []):
                 if interface.get("name") == "eth0":
                     for ip_info in interface.get("ip-addresses", []):
-                        if ip_info.get("ip-address-type") == "ipv4":
-                            return {
-                                'ipv4': ip_info.get("ip-address")
-                            }
+                        return {
+                            'ip': ip_info.get("ip-address")
+                        }
+
             _logger.warning(f"IPv4 address not found for VM {vmid}")
             return None
         except Exception as e:
@@ -597,3 +556,43 @@ class proxmox:
 
     def get_storage(self, node, **kwargs):
         return self._proxmoxer.nodes(node).storage.get()
+
+    def add_ssh(self,node,vmid,username,key):
+        ssh_content = ""
+        with open(key,"r") as content:
+            ssh_content = content.read()
+        try:
+            response = self._proxmoxer.nodes(node).qemu(vmid).agent('file-write').post(content=ssh_content,file=f"/home/{username}/.ssh/authorized_keys",node=node,vmid=vmid)
+            return {
+                'status_code': StatusCode.sucess,
+                'msg': response
+            }
+        except ResourceException as e:
+            return {
+                'status_code': StatusCode.failure,
+                'error_msg': str(e)
+            }
+        except Exception as e:
+            return {
+                'status_code': StatusCode.failure,
+                'error_msg': str(e)
+            }
+        
+    def get_exec_status(self,node,vmid,pid):
+
+        try:
+            response = self._proxmoxer.nodes(node).qemu(vmid).agent('exec-status').get(pid=pid)
+            return {
+                'status_code': StatusCode.sucess,
+                'msg': response
+            }
+        except ResourceException as e:
+            return {
+                'status_code': StatusCode.failure,
+                'error_msg': str(e)
+            }
+        except Exception as e:
+            return {
+                'status_code': StatusCode.failure,
+                'error_msg': str(e)
+            }

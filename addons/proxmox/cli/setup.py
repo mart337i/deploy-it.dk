@@ -17,10 +17,10 @@ console = Console()
 app = typer.Typer(help="Setup and test tools for proxmomx")
 
 def pve_conn(
-    host: str = configuration.env['host'],
-    user: str = configuration.env['user'],
-    token_name: str = configuration.env["token_name"],
-    token_value: str = configuration.env["token_value"],
+    host: str = configuration.loaded_config['host'],
+    user: str = configuration.loaded_config['user'],
+    token_name: str = configuration.loaded_config["token_name"],
+    token_value: str = configuration.loaded_config["token_value"],
     verify_ssl: bool = False,
     auth_type: str = "token",
 ):
@@ -38,10 +38,10 @@ def pve_conn(
 
 @app.command(help="Test token auth to the proxmox instance")
 def test_token2(
-    host: Annotated[str, typer.Option(help="hostname")] = configuration.env['host'],
-    user: Annotated[str, typer.Option(help="user")] = configuration.env['user'],
-    token_name: Annotated[str, typer.Option(help="token name")] = configuration.env["token_name"],
-    token_value: Annotated[str, typer.Option(help="token value")] = configuration.env["token_value"],
+    host: Annotated[str, typer.Option(help="hostname")] = configuration.loaded_config['host'],
+    user: Annotated[str, typer.Option(help="user")] = configuration.loaded_config['user'],
+    token_name: Annotated[str, typer.Option(help="token name")] = configuration.loaded_config["token_name"],
+    token_value: Annotated[str, typer.Option(help="token value")] = configuration.loaded_config["token_value"],
     verify_ssl: Annotated[bool, typer.Option(help="verify ssl")] = False,
     auth_type: Annotated[str, typer.Option(help="auth type")] = "token",
 ):

@@ -5,17 +5,18 @@ from fastapi.routing import APIRouter
 from fastapi.routing import APIRouter
 from fastapi import HTTPException, File, UploadFile
 from typing import Any
+import validators
 
-from addons.proxmox.schema.virtual_machine import VirtualMachine, VirtualMachineCI
+from addons.proxmox.schema.vm import VirtualMachine, CloneVM
 from addons.proxmox.schema.bash import BashCommand
 
 from addons.proxmox.models.proxmox import proxmox, TokenAuth
 from addons.proxmox.utils.yml_parser import read as yml_read
 from addons.proxmox.utils.yml_parser import validate as yml_validate
 
-from clicx.config import configuration
 
-from urllib.parse import quote
+
+from clicx.config import configuration
 
 
 router = APIRouter(
@@ -26,10 +27,10 @@ router = APIRouter(
 dependency = []
 
 def pve_conn(
-    host: str = configuration.env['host'],
-    user: str = configuration.env['user'],
-    token_name: str = configuration.env["token_name"],
-    token_value: str = configuration.env["token_value"],
+    host: str = configuration.loaded_config['host'],
+    user: str = configuration.loaded_config['user'],
+    token_name: str = configuration.loaded_config["token_name"],
+    token_value: str = configuration.loaded_config["token_value"],
     verify_ssl: bool = False,
     auth_type: str = "token",
 ):
@@ -48,13 +49,24 @@ def pve_conn(
 def get_vm_ids(node : str) -> Any:
     return pve_conn().get_vm_ids(node=node)
 
+@router.get(path="/get_all_configurations")
+def get_all_configurations() -> Any:
+    return pve_conn().get_all_configurations()
+
 @router.get(path="/get_next_available_vm_id")
 def get_next_available_vm_id() -> Any:
     return {
         "vmid": int(pve_conn().get_next_available_vm_id())
     }
 
-@router.post(path="/create-vm/")
+@router.post(path="/clone-vm")
+def clone_vm(node: str, vm_config: CloneVM):
+    if not validators.hostname(vm_config.name):
+        raise HTTPException(422, "Invalid Hostname")
+    
+    return pve_conn().clone_vm(node=node,config=vm_config.model_dump())
+    
+@router.post(path="/create-vm")
 def create_vm(node: str, vm_config: VirtualMachine):
     try:
         config = vm_config.config
@@ -64,38 +76,25 @@ def create_vm(node: str, vm_config: VirtualMachine):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/create-vm-pre-config/")
-def create_vm_pre_config(node: str, sshkeys : str, vm_config: VirtualMachineCI):
-    """
-    This medthod utilizes Cloud init for base configureing the VM
-    """
-    try:
-        sshkeys = quote(sshkeys, safe='')
-        vm = pve_conn().create_vm_pre_config(node=node,sshkeys=sshkeys,config=vm_config.model_dump())
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating VM: {e}")
-    return vm
+@router.get(path="/get_vm_ip")
+def get_vm_ip(node : str, vmid : int):
 
-@router.post(path="/bash_command")
-def execute_command(node : str, vmid : int, command : BashCommand):
-
-    response = pve_conn().bash_command(node=node, vmid=vmid, command=command.command)
-
-    return response
-
-@router.get(path="/get_network_setting_vm")
-def get_network_setting_vm(node : str, vmid : int):
-
-    response = pve_conn().get_network_setting_vm(node=node, vmid=vmid)
-
-    return response
-
-@router.get(path="/get_vm_ipv4")
-def get_vm_ipv4(node : str, vmid : int):
-
-    response = pve_conn().get_vm_ipv4(node=node, vmid=vmid)
+    response = pve_conn().get_vm_ip(node=node, vmid=vmid)
     if response == None:
         raise HTTPException(500, detail=f"Chould not resive ipv4, see API log for more info")
+    return response
+
+@router.get(path="/ping_qemu")
+def ping_qemu(node : str, vmid : int):
+
+    response = pve_conn().ping_qemu(node=node, vmid=vmid)
+    if response == None:
+        raise HTTPException(500, detail=f"Failed to ping QEMU guest agent")
+    return response
+
+@router.get(path="/get_qemu_agent_status")
+def get_qemu_agent_status(node : str, vmid : int):
+    response = pve_conn().get_qemu_agent_status(node=node,vm_id=vmid)
     return response
 
 @router.post("/execute-commands")
@@ -122,8 +121,8 @@ async def execute_commands(node: str,vmid: int,file: UploadFile = File(...)) -> 
     
     return {"responses": responses}
 
-@router.get("/resize_disk")
-def resize_disk(node,vm_id,disk,new_size) -> dict[str, dict[str, Any]]:
+@router.put("/resize_disk")
+def resize_disk(node: str,vm_id: int,disk: str,new_size: str):
     return pve_conn().resize_vm_disk(node=node,vm_id=vm_id,disk=disk,new_size=new_size)
 
 @router.get("/await_task_completion")
@@ -162,10 +161,6 @@ def get_vm_config(node: str, vmid: str) -> Any:
 @router.delete("/delete_vm")
 def delete_vm(node: str, vmid: str) -> Any:
     return pve_conn().delete_vm(node=node, vmid=vmid)
-
-@router.post("/clone_vm")
-def clone_vm(newid: str, node: str, vmid: str) -> Any:
-    return pve_conn().clone_vm(newid=newid, node=node, vmid=vmid)
 
 @router.post("/start_vm")
 def start_vm(node: str, vmid: str) -> Any:
