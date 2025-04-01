@@ -343,9 +343,10 @@ def hostname_map():
 def add_ssh(
     node,
     vmid,
+    username,
     key,
 ):
-    res = pve_conn().add_ssh(node,vmid,key)
+    res = pve_conn().add_ssh(node=node,vmid=vmid,username=username,key=key)
     rich.print(res)
     return res
 

@@ -528,14 +528,12 @@ class proxmox:
     def get_storage(self, node, **kwargs):
         return self._proxmoxer.nodes(node).storage.get()
 
-    def add_ssh(self,node,vmid,key):
+    def add_ssh(self,node,vmid,username,key):
         ssh_content = ""
         with open(key,"r") as content:
             ssh_content = content.read()
-
-            
         try:
-            response = self._proxmoxer.nodes(node).qemu(vmid).agent('file-write').post(content=ssh_content,file="/home/sysadmin/.ssh/authorized_keys",node=node,vmid=vmid)
+            response = self._proxmoxer.nodes(node).qemu(vmid).agent('file-write').post(content=ssh_content,file=f"/home/{username}/.ssh/authorized_keys",node=node,vmid=vmid)
             return {
                 'status_code': StatusCode.sucess,
                 'msg': response
