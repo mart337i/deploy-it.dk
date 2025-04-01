@@ -107,11 +107,16 @@ class proxmox:
 #######################
 # MARK: VM Creation and Configuration
 #######################
+
     def clone_vm(self, node: str, config: Dict[str, Any]) -> str:
         tasks = []
-        keys = config.get("sshkeys")
-        ssh = quote(keys,'')
         new_vmid = self.get_next_available_vm_id()
+
+
+        available_configuration = configuration.loaded_config.get('vm_configurations')
+        chosen_vm_config = available_configuration.get(str(config.get('vmid')),'9000')
+
+        ssh = quote(config.get("sshkeys"),'')
         clone_vm = self._proxmoxer.nodes(node).qemu(config.get('vmid')).clone.create(
             newid=new_vmid,
             name=config.get("name"),
@@ -125,8 +130,7 @@ class proxmox:
             cipassword = password,
             sshkeys = ssh,
         )
-
-        self.resize_vm_disk(node=node,vm_id=new_vmid,disk="scsi0",new_size='30G')
+        self.resize_vm_disk(node=node,vm_id=new_vmid,disk=chosen_vm_config['hardware'].get("disk"),new_size=f'{chosen_vm_config['hardware'].get("disksize")}G')
 
         return {
             "tasks" : tasks,
