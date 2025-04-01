@@ -47,6 +47,16 @@ class StatusCode(IntEnum):
     def __repr__(self):
         return f"{self.value}"
     
+class QemuStatus(str,Enum):
+    running = "Running"
+    pending = "Pending"
+    failure = "Failure"
+    
+    def __str__(self):
+        return f"{self.value}"
+    def __repr__(self):
+        return f"{self.value}"
+    
 class proxmox:
     """Base class for interacting with Proxmox VE via the proxmoxer API."""
 
@@ -110,30 +120,56 @@ class proxmox:
 
     def clone_vm(self, node: str, config: Dict[str, Any]) -> str:
         tasks = []
+        msg = []
         new_vmid = self.get_next_available_vm_id()
 
-
         available_configuration = configuration.loaded_config.get('vm_configurations')
-        chosen_vm_config = available_configuration.get(str(config.get('vmid')),'9000')
+        chosen_vm_config = available_configuration.get(str(config.get('vmid')))
+        clone_id = config.get('vmid')
+
+        if not chosen_vm_config:
+            clone_id = '9000'
+            chosen_vm_config = available_configuration.get(clone_id)
+            error = f"Unable to determine template id. Defaulted to template_id {clone_id}"
+            msg.append(error)
+
+        disk_size = chosen_vm_config['hardware'].get("disksize")
+        disk = chosen_vm_config['hardware'].get("disk")
+        ssh_key = config.get("sshkeys")
+
+        if not disk and not disk_size:
+            disk = 'scsi0'
+            disk_size = 30
+            error = f"Unable to define disk and disk size. Defaulted to disk {disk} and disksize {disk_size}"
+            _logger.error(error)
+            msg.append(error)
+
+        if not ssh_key: 
+            raise ValueError("No ssh key found, Unable to create Vm without it.")
 
         ssh = quote(config.get("sshkeys"),'')
-        clone_vm = self._proxmoxer.nodes(node).qemu(config.get('vmid')).clone.create(
+
+        clone_vm = self._proxmoxer.nodes(node).qemu(clone_id).clone.create(
             newid=new_vmid,
             name=config.get("name"),
             full=1  # full clone; change to 0 for linked clone if desired.
         )
 
         tasks.append(self.blocking_status(node=node,task_id=clone_vm))
-        password = _generate_password(30)
+        password = "passwordpassword" # _generate_password(30)
         self._proxmoxer.nodes(node).qemu(new_vmid).config.put(
             ciuser = config.get("ciuser"),
             cipassword = password,
             sshkeys = ssh,
         )
-        self.resize_vm_disk(node=node,vm_id=new_vmid,disk=chosen_vm_config['hardware'].get("disk"),new_size=f'{chosen_vm_config['hardware'].get("disksize")}G')
+
+        
+        self.resize_vm_disk(node=node,vm_id=new_vmid,disk=disk,new_size=f'{disk_size}G')
+        self._proxmoxer.nodes(node).qemu(new_vmid).status.start.post()
 
         return {
             "tasks" : tasks,
+            "msg":msg,
             "vm" : {
                 "vmid": new_vmid,
                 "user" : config.get("ciuser"),
@@ -327,14 +363,13 @@ class proxmox:
         elapsed_time = 0
 
         while elapsed_time < timeout:
-            status = self.get_qemu_agent_status(node, vm_id)
-            status_code = status.get('status_code')
-
-            if status_code == 1:
-                return True
-            elif status_code == -1:
-                _logger.error(f"Error checking QEMU agent: {status.get('error_msg')}")
-                return False
+            res = self.get_qemu_agent_status(node, vm_id)
+            
+            if res["status"] == QemuStatus.running:
+                break
+            
+            if res["status"] == QemuStatus.failure:
+                raise ValueError(res["exception"])
 
             time.sleep(interval)
             elapsed_time += interval
@@ -344,20 +379,14 @@ class proxmox:
 
     def get_qemu_agent_status(self, node: str, vm_id: str) -> Dict[str, Any]:
         try:
-            response = self._proxmoxer.nodes(node).qemu(vm_id).agent.post('ping')
-            return {
-                'status_code': StatusCode.sucess,
-                'error_msg': response
-            }
+            self._proxmoxer.nodes(node).qemu(vm_id).agent.post('ping')
+            return {"status" : QemuStatus.running}
         except ResourceException as e:
-            return {
-                'status_code': StatusCode.failure,
-                'error_msg': str(e)
-            }
+            return {"status" : QemuStatus.pending}
         except Exception as e:
             return {
-                'status_code': StatusCode.failure,
-                'error_msg': str(e)
+                'status': QemuStatus.failure,
+                'exception' : e
             }
     
 #######################

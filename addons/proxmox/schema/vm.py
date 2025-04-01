@@ -33,7 +33,6 @@ class CloneVM(BaseModel):
     name: str = Field(..., description="Name for the cloned VM.")
     ciuser: Optional[str] = Field(None, description="Cloud-Init username override.")
     sshkeys: Optional[str] = Field(None, description="SSH public keys override for Cloud-Init.")
-    cicustom: Optional[str] = Field(None, description="Custom Cloud-Init config (format: 'user=storage:path,network=storage:path')")
 
     class Config:
         extra = 'forbid'
@@ -44,7 +43,6 @@ class CloneVM(BaseModel):
                 "name": "ubuntu-cloud",
                 "ciuser": "sysadmin",
                 "sshkeys": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIArQk8YlZR7RseAQH42utnPRqo10xANdDpruL+UcFiaZ mart337i@gmail.com",
-                "cicustom": "user=local:snippets/ubuntu_ci2.yml",
             }
         }
 

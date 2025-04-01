@@ -76,13 +76,6 @@ def create_vm(node: str, vm_config: VirtualMachine):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post(path="/bash_command")
-def execute_command(node : str, vmid : int, command : BashCommand):
-
-    response = pve_conn().bash_command(node=node, vmid=vmid, command=command.command)
-
-    return response
-
 @router.get(path="/get_vm_ip")
 def get_vm_ip(node : str, vmid : int):
 
@@ -97,6 +90,11 @@ def ping_qemu(node : str, vmid : int):
     response = pve_conn().ping_qemu(node=node, vmid=vmid)
     if response == None:
         raise HTTPException(500, detail=f"Failed to ping QEMU guest agent")
+    return response
+
+@router.get(path="/get_qemu_agent_status")
+def get_qemu_agent_status(node : str, vmid : int):
+    response = pve_conn().get_qemu_agent_status(node=node,vm_id=vmid)
     return response
 
 @router.post("/execute-commands")
