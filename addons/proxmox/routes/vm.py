@@ -46,6 +46,10 @@ def pve_conn(
 def get_vm_ids(node : str) -> Any:
     return pve_conn().get_vm_ids(node=node)
 
+@router.get(path="/get_all_configurations")
+def get_all_configurations() -> Any:
+    return pve_conn().get_all_configurations()
+
 @router.get(path="/get_next_available_vm_id")
 def get_next_available_vm_id() -> Any:
     return {
@@ -56,7 +60,7 @@ def get_next_available_vm_id() -> Any:
 def clone_vm(node: str, vm_config: CloneVM):
     return pve_conn().clone_vm(node=node,config=vm_config.model_dump())
     
-@router.post(path="/create-vm/")
+@router.post(path="/create-vm")
 def create_vm(node: str, vm_config: VirtualMachine):
     try:
         config = vm_config.config

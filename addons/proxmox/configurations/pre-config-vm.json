@@ -1,10 +1,48 @@
 {
-    "vm_configurations" : {
-        "default" : {
-            "name" : "default vm config",
-            "desc" : "123",
-            "template_id" : 8000,
-            "disk": "scsi0"
+    "vm_configurations": {
+        "9000": {
+            "name": "default vm config",
+            "desc": "A default config",
+            "hardware": {
+                "memory": 2,
+                "processers": 1,
+                "cores": 2,
+                "disksize": 30,
+                "disk": "scsi0"
+            }
+        },
+        "9100": {
+            "name": "Basic VPS",
+            "desc": "A starter VPS configuration",
+            "hardware": {
+                "memory": 4,
+                "processers": 1,
+                "cores": 2,
+                "disksize": 50,
+                "disk": "scsi0"
+            }
+        },
+        "9200": {
+            "name": "Standard VPS",
+            "desc": "A mid-tier VPS configuration",
+            "hardware": {
+                "memory": 8,
+                "processers": 1,
+                "cores": 4,
+                "disksize": 100,
+                "disk": "scsi0"
+            }
+        },
+        "9300": {
+            "name": "Premium VPS",
+            "desc": "A high-performance VPS configuration",
+            "hardware": {
+                "memory": 16,
+                "processers": 1,
+                "cores": 8,
+                "disksize": 250,
+                "disk": "scsi0"
+            }
         }
     }
 }

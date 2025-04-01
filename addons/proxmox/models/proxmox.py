@@ -139,6 +139,9 @@ class proxmox:
     
     def create_vm(self, node: str, config: Dict[str, Any]) -> str:
         return self._proxmoxer.nodes(node).qemu.create(**config)
+    
+    def get_all_configurations(self):
+        return configuration.loaded_config.get("vm_configurations")
 
 #######################
 # MARK:VM Management
