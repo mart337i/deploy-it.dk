@@ -363,7 +363,7 @@ class proxmox:
 #######################
 # MARK: Network Management
 #######################
-    def get_vm_ipv4(self, node: str, vmid: str) -> Optional[Dict[str, str]]:
+    def get_vm_ip(self, node: str, vmid: str) -> Optional[Dict[str, str]]:
         """
         Get the IPv4 address of a VM.
         
@@ -379,10 +379,10 @@ class proxmox:
             for interface in vm_status.get("result", []):
                 if interface.get("name") == "eth0":
                     for ip_info in interface.get("ip-addresses", []):
-                        if ip_info.get("ip-address-type") == "ipv4":
-                            return {
-                                'ipv4': ip_info.get("ip-address")
-                            }
+                        return {
+                            'ip': ip_info.get("ip-address")
+                        }
+
             _logger.warning(f"IPv4 address not found for VM {vmid}")
             return None
         except Exception as e:

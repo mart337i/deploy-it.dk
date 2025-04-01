@@ -83,10 +83,10 @@ def execute_command(node : str, vmid : int, command : BashCommand):
 
     return response
 
-@router.get(path="/get_vm_ipv4")
-def get_vm_ipv4(node : str, vmid : int):
+@router.get(path="/get_vm_ip")
+def get_vm_ip(node : str, vmid : int):
 
-    response = pve_conn().get_vm_ipv4(node=node, vmid=vmid)
+    response = pve_conn().get_vm_ip(node=node, vmid=vmid)
     if response == None:
         raise HTTPException(500, detail=f"Chould not resive ipv4, see API log for more info")
     return response
