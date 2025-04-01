@@ -19,10 +19,10 @@ app = typer.Typer(help="Virtual machine management")
 
 
 def pve_conn(
-    host: str = configuration.env['host'],
-    user: str = configuration.env['user'],
-    token_name: str = configuration.env["token_name"],
-    token_value: str = configuration.env["token_value"],
+    host: str = configuration.loaded_config['host'],
+    user: str = configuration.loaded_config['user'],
+    token_name: str = configuration.loaded_config["token_name"],
+    token_value: str = configuration.loaded_config["token_value"],
     verify_ssl: bool = False,
     auth_type: str = "token",
 ):
