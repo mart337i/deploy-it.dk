@@ -1,12 +1,8 @@
 
-# Third-party imports
-from fastapi.routing import APIRouter
-
-from fastapi.routing import APIRouter
 from typing import Any
 
-
-from proxmox.models.proxmox import proxmox, TokenAuth
+from fastapi.routing import APIRouter
+from proxmox.models.proxmox import TokenAuth, proxmox
 
 from clicx.config import configuration
 

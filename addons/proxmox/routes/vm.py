@@ -1,23 +1,16 @@
 
-# Third-party imports
-from fastapi.routing import APIRouter
-
-from fastapi.routing import APIRouter
-from fastapi import HTTPException, File, UploadFile
 from typing import Any
+
 import validators
-
-from proxmox.schema.vm import VirtualMachine, CloneVM
+from fastapi import File, HTTPException, UploadFile
+from fastapi.routing import APIRouter
+from proxmox.models.proxmox import TokenAuth, proxmox
 from proxmox.schema.bash import BashCommand
-
-from proxmox.models.proxmox import proxmox, TokenAuth
+from proxmox.schema.vm import CloneVM, VirtualMachine
 from proxmox.utils.yml_parser import read as yml_read
 from proxmox.utils.yml_parser import validate as yml_validate
 
-
-
 from clicx.config import configuration
-
 
 router = APIRouter(
     prefix=f"/proxmox/v1/vm",

@@ -11,6 +11,7 @@ __path__ = extend_path(__path__, __name__)
 
 __version__ = '1.0.0'
 VERSION: str = __version__
+NAME = __name__
 
 # Usefull paths
 templates_dir: Path = Path(Path(__file__).parent, 'templates')
@@ -24,6 +25,7 @@ project_root : Path = Path(Path(__file__).parent.parent)
 # This is done to impove modularization 
 sys.path.insert(0, str(addons))
 
+# DO the import last, so we aviod circular imports 
 from . import utils
 from . import config
 from . import cli

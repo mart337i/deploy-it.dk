@@ -1,21 +1,21 @@
-from typing import Dict, Any, List, Optional, Union
-from proxmoxer import ProxmoxAPI
-from proxmoxer.tools.tasks import Tasks
-from proxmoxer.core import ResourceException
-from proxmoxer.backends.https import Backend
-import urllib3.util
-from clicx.utils.exceptions import SleepyDeveloperError
-from clicx.config import configuration
-from clicx.utils.security import _generate_password
-from pydantic import BaseModel
+import logging
 import time
 from enum import Enum, IntEnum
-from pydantic import BaseModel
+from typing import Any, Dict, List, Optional, Union
 from urllib.parse import quote, quote_plus
 
+import urllib3.util
+from proxmoxer import ProxmoxAPI
+from proxmoxer.backends.https import Backend
+from proxmoxer.core import ResourceException
+from proxmoxer.tools.tasks import Tasks
+from pydantic import BaseModel
 
-import logging
-_logger = logging.getLogger("proxmox")
+from clicx.config import configuration
+from clicx.utils.exceptions import SleepyDeveloperError
+from clicx.utils.security import _generate_password
+
+_logger = logging.getLogger("clicx")
 
 #######################
 # MARK: Class Definition and Initialization

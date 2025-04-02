@@ -1,7 +1,7 @@
 from fastapi import Request
 
 import logging
-_logger = logging.getLogger("app")
+_logger = logging.getLogger("clicx")
 
 async def log_request_info(request: Request):
     _logger.debug(
