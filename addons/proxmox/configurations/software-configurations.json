@@ -1,0 +1,29 @@
+{
+    "software_configurations": {
+        "configure_vm": {
+            "name": "default vm config",
+            "desc": "A default config",
+            "filename": "configure_vm.yml"
+        },
+        "install_docker_engine": {
+            "name": "default vm config",
+            "desc": "A default config",
+            "filename": "install_docker_engine.yml"
+        },
+        "setup_odoo": {
+            "name": "default vm config",
+            "desc": "A default config",
+            "filename": "setup_odoo.yml"
+        },
+        "ubuntu_ci": {
+            "name": "default vm config",
+            "desc": "A default config",
+            "filename": "ubuntu_ci.yml"
+        },
+        "install_php": {
+            "name": "default vm config",
+            "desc": "A default config",
+            "filename": "install_php.yml"
+        }
+    }
+}

@@ -4,9 +4,6 @@ import json
 from typing import Dict, List, Any, Optional
 
 def read(yml_file: str) -> Dict[str, Any]:
-    if not os.path.exists(yml_file):
-        raise FileNotFoundError(f"The file {yml_file} does not exist")
-    
     try:
         with open(yml_file, 'r') as file:
             data = yaml.safe_load(file)

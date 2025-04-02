@@ -4,7 +4,11 @@ from enum import Enum, IntEnum
 from typing import Any, Dict, List, Optional, Union
 from urllib.parse import quote, quote_plus
 
+import yaml
+import invoke
+import paramiko
 import urllib3.util
+import base64
 from proxmoxer import ProxmoxAPI
 from proxmoxer.backends.https import Backend
 from proxmoxer.core import ResourceException
@@ -14,8 +18,12 @@ from pydantic import BaseModel
 from clicx.config import configuration
 from clicx.utils.exceptions import SleepyDeveloperError
 from clicx.utils.security import _generate_password
+from clicx.utils.jinja import render
+from proxmox.utils.yml_parser import read
 
-_logger = logging.getLogger("clicx")
+from clicx.utils.jinja import render_from_string,load_template
+
+_logger = logging.getLogger(__name__)
 
 #######################
 # MARK: Class Definition and Initialization
@@ -182,7 +190,132 @@ class proxmox:
     
     def get_all_configurations(self):
         return configuration.loaded_config.get("vm_configurations")
+    
+    def get_software_configurations(self):
+        return configuration.loaded_config.get("get_software_configurations")
 
+    def execute_shell_script(self, script_content: str, node: str, vmid: str):
+        """Execute a shell script directly on the VM using QEMU guest agent"""
+        results = []
+        
+        # Write the script to the VM using QEMU guest agent
+        script_path = "/tmp/proxmox_script.sh"
+        _logger.info(f"Writing shell script to VM {vmid}")
+        
+        try:
+            # Use QEMU agent to write the file
+            self._proxmoxer.nodes(node).qemu(vmid).agent.post(
+                command="file-write",
+                content={
+                    "path": script_path,
+                    "content": base64.b64encode(script_content.encode()).decode('utf-8'),
+                    "encode": 1
+                }
+            )
+            
+            # Make the script executable using QEMU agent
+            self._proxmoxer.nodes(node).qemu(vmid).agent.post(
+                command="exec",
+                content={
+                    "command": "chmod",
+                    "args": ["+x", script_path]
+                }
+            )
+            
+            # Execute the script using QEMU agent with sudo
+            _logger.info(f"Executing shell script on VM {vmid}")
+            exec_result = self._proxmoxer.nodes(node).qemu(vmid).agent.post(
+                command="exec",
+                content={
+                    "command": "sudo",
+                    "args": [script_path]
+                }
+            )
+            
+            # Parse the execution result
+            stdout = exec_result.get('out-data', '')
+            stderr = exec_result.get('err-data', '')
+            exit_code = exec_result.get('exitcode', 1)
+            
+            status = "success" if exit_code == 0 else "failed"
+            
+            results = {
+                "status": status,
+                "stdout": stdout,
+                "stderr": stderr,
+                "exit_code": exit_code
+            }
+            
+            # Clean up the script
+            self.proxmox.nodes(node).qemu(vmid).agent.post(
+                command="exec",
+                content={
+                    "command": "rm",
+                    "args": [script_path]
+                }
+            )
+            
+            return results
+            
+        except Exception as e:
+            _logger.error(f"Failed to execute script on VM {vmid}: {str(e)}")
+            return {
+                "status": "failed",
+                "error": str(e)
+            }
+
+    def configure_vm(self, node: str, vmid: str, script_name: str):
+        """Execute a predefined shell script template on a VM"""
+        # Check Qemu status
+        qemu_available = self.await_qemu_agent_ready(node=node, vm_id=vmid)
+        if qemu_available != QemuStatus.running:
+            raise ResourceException(status_code=500, status_message="Qemu agent not running")
+    
+        try:
+            # Render the script from template
+            script_content = render(template_name=script_name)
+            
+            # Execute the shell script
+            result = self.execute_shell_script(script_content=script_content, node=node, vmid=vmid)
+            
+            # Return job status
+            return {
+                "status": "completed" if result["status"] == "success" else "failed",
+                "node": node,
+                "vmid": vmid,
+                "script_name": script_name,
+                "result": result
+            }
+        
+        except Exception as e:
+            _logger.error(f"Failed to configure VM {vmid} on node {node}: {str(e)}")
+            raise ResourceException(status_code=500, status_message=f"VM configuration failed: {str(e)}")
+    
+    def configure_vm_custom(self, node: str, vmid: str, script_file):
+        """Execute a custom shell script uploaded by user on a VM"""
+        # Check Qemu status
+        qemu_available = self.await_qemu_agent_ready(node=node, vm_id=vmid)
+        if qemu_available != QemuStatus.running:
+            raise ResourceException(status_code=500, status_message="Qemu agent not running")
+        
+        try:
+            # Read the content from the UploadFile object
+            script_content = script_file.file.read().decode('utf-8')
+            
+            # Execute the shell script
+            result = self.execute_shell_script(script_content=script_content, node=node, vmid=vmid)
+            
+            # Return job status
+            return {
+                "status": "completed" if result["status"] == "success" else "failed",
+                "node": node,
+                "vmid": vmid,
+                "result": result
+            }
+        
+        except Exception as e:
+            _logger.error(f"Failed to configure VM {vmid} on node {node}: {str(e)}")
+            raise ResourceException(status_code=500, status_message=f"VM configuration failed: {str(e)}")
 #######################
 # MARK:VM Management
 #######################
@@ -366,7 +499,7 @@ class proxmox:
             res = self.get_qemu_agent_status(node, vm_id)
             
             if res["status"] == QemuStatus.running:
-                break
+                return QemuStatus.running
             
             if res["status"] == QemuStatus.failure:
                 raise ValueError(res["exception"])
@@ -375,7 +508,7 @@ class proxmox:
             elapsed_time += interval
 
         _logger.warning(f"Timeout waiting for QEMU agent on VM {vm_id}")
-        return False
+        return QemuStatus.failure
 
     def get_qemu_agent_status(self, node: str, vm_id: str) -> Dict[str, Any]:
         try:
@@ -394,14 +527,14 @@ class proxmox:
 #######################
     def get_vm_ip(self, node: str, vmid: str) -> Optional[Dict[str, str]]:
         """
-        Get the IPv4 address of a VM.
+        Get the IP address of a VM.
         
         Args:
             node: Node name
             vmid: VM ID
             
         Returns:
-            Dictionary with the IPv4 address or None if not found
+            Dictionary with the IP address or None if not found
         """
         try:
             vm_status = self._proxmoxer.nodes(node).qemu(vmid).agent('network-get-interfaces').get()
@@ -412,10 +545,10 @@ class proxmox:
                             'ip': ip_info.get("ip-address")
                         }
 
-            _logger.warning(f"IPv4 address not found for VM {vmid}")
+            _logger.warning(f"IP address not found for VM {vmid}")
             return None
         except Exception as e:
-            _logger.error(f"Error getting IPv4 for VM {vmid}: {e}")
+            _logger.error(f"Error getting IP for VM {vmid}: {e}")
             return None
     
     def get_network_setting_vm(self, node: str, vmid: str) -> Dict[str, Any]:

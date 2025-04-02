@@ -1,5 +1,5 @@
 
-from typing import Any
+from typing import Any, Annotated
 
 import validators
 from fastapi import File, HTTPException, UploadFile
@@ -46,11 +46,23 @@ def get_vm_ids(node : str) -> Any:
 def get_all_configurations() -> Any:
     return pve_conn().get_all_configurations()
 
+@router.get(path="/get_software_configurations")
+def get_software_configurations() -> Any:
+    return pve_conn().get_software_configurations()
+
 @router.get(path="/get_next_available_vm_id")
 def get_next_available_vm_id() -> Any:
     return {
         "vmid": int(pve_conn().get_next_available_vm_id())
     }
+
+@router.post(path="/configure_vm")
+def configure_vm(node : str, vmid: int, config_name : str):
+    return pve_conn().configure_vm(node=node,vmid=vmid,script_name=config_name)
+
+@router.post(path="/configure_vm_custom")
+def configure_vm_custom(node : str, vmid: int, config_file : UploadFile = File(...)):
+    return pve_conn().configure_vm_custom(node=node,vmid=vmid,script_file=config_file)
 
 @router.post(path="/clone-vm")
 def clone_vm(node: str, vm_config: CloneVM):
@@ -74,7 +86,7 @@ def get_vm_ip(node : str, vmid : int):
 
     response = pve_conn().get_vm_ip(node=node, vmid=vmid)
     if response == None:
-        raise HTTPException(500, detail=f"Chould not resive ipv4, see API log for more info")
+        raise HTTPException(500, detail=f"Chould not resive ip, see API log for more info")
     return response
 
 @router.get(path="/ping_qemu")
@@ -89,30 +101,6 @@ def ping_qemu(node : str, vmid : int):
 def get_qemu_agent_status(node : str, vmid : int):
     response = pve_conn().get_qemu_agent_status(node=node,vm_id=vmid)
     return response
-
-@router.post("/execute-commands")
-async def execute_commands(node: str,vmid: int,file: UploadFile = File(...)) -> dict[str, str] | dict[str, list]:
-    commands = yml_read(file)
-    if not yml_validate(commands):
-        return {"error": "Invalid YAML format. Expected 'runcmd' list."}
-    
-    responses = []
-    for command in commands["commands"]:
-        try:
-            response = pve_conn.execute_command(node=node, vmid=vmid, command=command)
-            responses.append({
-                "command": command,
-                "status": "success",
-                "response": response
-            })
-        except Exception as e:
-            responses.append({
-                "command": command,
-                "status": "error",
-                "error": str(e)
-            })
-    
-    return {"responses": responses}
 
 @router.put("/resize_disk")
 def resize_disk(node: str,vm_id: int,disk: str,new_size: str):
