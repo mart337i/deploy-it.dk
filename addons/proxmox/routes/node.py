@@ -6,7 +6,7 @@ from fastapi.routing import APIRouter
 from typing import Any
 
 
-from addons.proxmox.models.proxmox import proxmox, TokenAuth
+from proxmox.models.proxmox import proxmox, TokenAuth
 
 from clicx.config import configuration
 

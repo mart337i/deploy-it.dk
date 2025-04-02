@@ -7,12 +7,12 @@ from fastapi import HTTPException, File, UploadFile
 from typing import Any
 import validators
 
-from addons.proxmox.schema.vm import VirtualMachine, CloneVM
-from addons.proxmox.schema.bash import BashCommand
+from proxmox.schema.vm import VirtualMachine, CloneVM
+from proxmox.schema.bash import BashCommand
 
-from addons.proxmox.models.proxmox import proxmox, TokenAuth
-from addons.proxmox.utils.yml_parser import read as yml_read
-from addons.proxmox.utils.yml_parser import validate as yml_validate
+from proxmox.models.proxmox import proxmox, TokenAuth
+from proxmox.utils.yml_parser import read as yml_read
+from proxmox.utils.yml_parser import validate as yml_validate
 
 
 

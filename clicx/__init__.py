@@ -15,6 +15,9 @@ templates_dir: Path = Path(Path(__file__).parent, 'templates')
 addons: Path = Path(Path(__file__).parent.parent, 'addons')
 project_root : Path = Path(Path(__file__).parent.parent)
 
+if addons.exists():
+    sys.path.insert(0, str(addons))
+
 from . import utils
 from . import config
 from . import cli

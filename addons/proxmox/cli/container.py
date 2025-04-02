@@ -11,8 +11,8 @@ from typing_extensions import Annotated
 from yaml import safe_load
 
 # Local imports
-from addons.proxmox.models.proxmox import proxmox, TokenAuth
-from addons.proxmox.utils.yml_parser import read,validate
+from proxmox.models.proxmox import proxmox, TokenAuth
+from proxmox.utils.yml_parser import read,validate
 
 from clicx.config import configuration
 from clicx.utils.jinja import render

@@ -12,6 +12,7 @@ import rich
 # Local application imports
 from clicx.config import configuration
 from clicx.utils.middleware import log_request_info
+from clicx import VERSION
 
 import logging
 _logger = logging.getLogger("app")
@@ -157,4 +158,18 @@ class API(FastAPI):
 # This is the name of the application, as seen in the server file.
 # It is needed to be able to configure workers and set reload=true on uvicorn. 
 # The name and api instance need to match for uvicorn's lifespan to work correctly
-api : API = API()
+api : API = API(
+    description= """
+        This REST API, built with FastAPI and Proxmoxer, automates the creation of virtual machines on a Proxmox virtualization environment for Company X. It provides endpoints to deploy, configure, and manage VMs efficiently, streamlining the provisioning process while ensuring consistency and reliability.
+    """,
+    version=VERSION,
+    license_info={
+        'name': "MIT",
+        'url' : "https://mit-license.org/"
+    },
+    contact={
+        "name": "Deploy-it.dk",
+        "url" : "https://www.Deploy-it.dk",
+        "email" : "Info@deploy-it.dk"
+    }
+)
