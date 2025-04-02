@@ -195,41 +195,29 @@ class proxmox:
         return configuration.loaded_config.get("get_software_configurations")
 
     def execute_shell_script(self, script_content: str, node: str, vmid: str):
-        """Execute a shell script directly on the VM using QEMU guest agent"""
+        """Execute a shell script on the VM using QEMU guest agent"""
         results = []
         
-        # Write the script to the VM using QEMU guest agent
+        _logger.info(f"Executing shell script on VM {vmid}")
         script_path = "/tmp/proxmox_script.sh"
-        _logger.info(f"Writing shell script to VM {vmid}")
         
         try:
-            # Use QEMU agent to write the file
-            self._proxmoxer.nodes(node).qemu(vmid).agent.post(
-                command="file-write",
-                content={
-                    "path": script_path,
-                    "content": base64.b64encode(script_content.encode()).decode('utf-8'),
-                    "encode": 1
-                }
+            # Use the correct file-write endpoint with proper parameters
+            self._proxmoxer.nodes(node).qemu(vmid).agent("file-write").post(
+                content=script_content,
+                file=script_path,
+                encode=1
             )
             
-            # Make the script executable using QEMU agent
-            self._proxmoxer.nodes(node).qemu(vmid).agent.post(
-                command="exec",
-                content={
-                    "command": "chmod",
-                    "args": ["+x", script_path]
-                }
+            # Make the script executable
+            # For the exec endpoint, args should be passed in command string
+            self._proxmoxer.nodes(node).qemu(vmid).agent("exec").post(
+                command="chmod +x " + script_path
             )
             
-            # Execute the script using QEMU agent with sudo
-            _logger.info(f"Executing shell script on VM {vmid}")
-            exec_result = self._proxmoxer.nodes(node).qemu(vmid).agent.post(
-                command="exec",
-                content={
-                    "command": "sudo",
-                    "args": [script_path]
-                }
+            # Execute the script with sudo
+            exec_result = self._proxmoxer.nodes(node).qemu(vmid).agent("exec").post(
+                command="sudo " + script_path
             )
             
             # Parse the execution result
@@ -247,12 +235,8 @@ class proxmox:
             }
             
             # Clean up the script
-            self.proxmox.nodes(node).qemu(vmid).agent.post(
-                command="exec",
-                content={
-                    "command": "rm",
-                    "args": [script_path]
-                }
+            self._proxmoxer.nodes(node).qemu(vmid).agent("exec").post(
+                command="rm " + script_path
             )
             
             return results
