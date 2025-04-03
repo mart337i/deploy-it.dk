@@ -36,7 +36,6 @@ class Configuration:
 
 
         self._logger = self.setup_logging(app_name=NAME,log_level=log_level,log_to_file=self.log_to_file)
-        self._logger.info("Initialized application configuration")
    
     def load_env_from_directory(self, directory):
         """
@@ -123,7 +122,6 @@ class Configuration:
                 logger.addHandler(console_handler)
         
         app_logger = logging.getLogger(NAME)
-        app_logger.info(f"{app_name} logging system initialized")
         
         return app_logger
         

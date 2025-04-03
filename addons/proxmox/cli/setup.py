@@ -5,7 +5,7 @@ from typing import Annotated, List, Optional
 # Third party imports
 import rich
 import typer
-from proxmox.models.enums import TokenAuth
+from proxmox.models.auth import TokenAuth
 # Local imports
 from proxmox.models.proxmox import proxmox
 from rich.console import Console

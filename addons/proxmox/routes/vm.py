@@ -4,7 +4,7 @@ from typing import Annotated, Any
 import validators
 from fastapi import File, HTTPException, UploadFile
 from fastapi.routing import APIRouter
-from proxmox.models.enums import TokenAuth
+from proxmox.models.auth import TokenAuth
 from proxmox.models.proxmox import proxmox
 from proxmox.schema.bash import BashCommand
 from proxmox.schema.vm import CloneVM, VirtualMachine

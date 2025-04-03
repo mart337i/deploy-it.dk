@@ -18,7 +18,6 @@ def server(
     host: Annotated[Optional[str], typer.Option(help='Bind socket to this host')] = "0.0.0.0",
     port: Annotated[Optional[int], typer.Option(help='Bind socket to this port')] = 8000,
     reload: Annotated[Optional[bool], typer.Option(help='Enable auto-reload')] = True,
-    log_level: Annotated[Optional[str], typer.Option(help='Log level')] = None,
     workers: Annotated[Optional[int], typer.Option(help='Number of worker processes')] = None,
 ):
     """Start the server application with optional database operations."""

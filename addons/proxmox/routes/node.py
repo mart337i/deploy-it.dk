@@ -3,7 +3,7 @@ from typing import Any
 
 from fastapi.routing import APIRouter
 from proxmox.models.proxmox import proxmox
-from proxmox.models.enums import TokenAuth
+from proxmox.models.auth import TokenAuth
 
 
 from clicx.config import configuration
