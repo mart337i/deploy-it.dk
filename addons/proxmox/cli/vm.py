@@ -11,7 +11,9 @@ import typer
 from typing_extensions import Annotated
 
 # Local imports
-from proxmox.models.proxmox import proxmox,TokenAuth
+from proxmox.models.proxmox import proxmox
+from proxmox.models.enums import TokenAuth
+
 from clicx.config import configuration
 
 console = Console()
