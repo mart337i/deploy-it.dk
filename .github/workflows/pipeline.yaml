@@ -97,6 +97,8 @@ jobs:
         with:
           name: deploy-it.dk
           file: compose.yaml
+          registry_auth: true  # This adds --with-registry-auth flag
+          detach: false  # This will show more detailed output
           host: ${{ secrets.DOCKER_HOST }}
           port: ${{ secrets.DOCKER_PORT }}
           user: ${{ secrets.DOCKER_USER }}
@@ -104,7 +106,4 @@ jobs:
           registry_host: 'ghcr.io'
           registry_user: mart337i
           registry_pass: ${{ secrets.GHCR_PASS }}
-          detach: false  # This will show more detailed output
-          registry_auth: true  # This adds --with-registry-auth flag
           env_file: ./envfile
-          args: "--remove-orphans --force-recreate --verbose"  # Try adding verbose flag
