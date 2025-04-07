@@ -70,14 +70,16 @@ jobs:
 
       - name: Verify deployment files
         run: |
-          test -f docker-stack.yaml || (echo "docker-stack.yaml missing!" && exit 1)
+          test -f compose.yaml || (echo "compose.yaml missing!" && exit 1)
 
-      - name: Build and push Docker images
-        uses: docker/build-push-action@v6.15.0
+      - name: Docker Stack Deploy
+        uses: cssnr/stack-deploy-action@v1
         with:
           name: deploy-it.dk
-          file: docker-stack.yaml
-          host: ${{ secrets.HOST }}
-          port: ${{ secrets.PORT }}
-          user: ${{ secrets.USER }}
-          ssh_key: ${{ secrets.SSH_KEY }}
+          file: compose.yaml
+          host: ${{ secrets.DOCKER_HOST }}
+          port: ${{ secrets.DOCKER_PORT }}
+          user: ${{ secrets.DOCKER_USER }}
+          pass: ${{ secrets.DOCKER_PASS }} # not needed with ssh_key
+          ssh_key: ${{ secrets.DOCKER_SSH_KEY }} # not needed with pass
+          env_file: ./envfile
