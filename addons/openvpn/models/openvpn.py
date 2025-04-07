@@ -7,19 +7,9 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 class OpenVpn():
-    _instance = None
-    
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super(OpenVpn, cls).__new__(cls)
-            cls._instance._initialized = False
-        return cls._instance
     
     def __init__(self):
-        if self._initialized:
-            return
-            
-        self.certs = self.get_existing()
+
         self.base_dir = "/etc/openvpn"
         self.easyrsa_dir = f"{self.base_dir}/easy-rsa"
         self.public_cert_dir = f"{self.easyrsa_dir}/pki/issued"
@@ -29,7 +19,8 @@ class OpenVpn():
         self.tls_crypt_path = f"{self.base_dir}/tls-crypt.key"
         self.client_template_path = f"{self.base_dir}/client-template.txt"
         self.easyrsa_script = f"{self.easyrsa_dir}/easyrsa"
-        self._initialized = True
+        # self.certs = self.get_existing()
+
         
     def create_client(self, filename):
         if not self.validate_name(filename):
@@ -243,5 +234,4 @@ class OpenVpn():
             logger.error(f"Error checking if file {filepath} exists: {str(e)}")
             return False
 
-# Singleton instance
 openVpn = OpenVpn()

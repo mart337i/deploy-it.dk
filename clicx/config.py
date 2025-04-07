@@ -14,7 +14,7 @@ from clicx import NAME
 class Configuration:
     def __init__(self, addons):
         """
-        Initialize configuration by loading environment variables from all files in addons
+        Initialize configuration by loading environment variables from all env,json files in addons
         and from the OS environment
         
         Args:
