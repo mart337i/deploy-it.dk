@@ -1,18 +1,18 @@
 # OS
 import os
-from typing import Optional, List, Annotated
+from typing import Annotated, List, Optional
 
 # Third party imports
 import rich
+import typer
+from proxmox.models.auth import TokenAuth
+# Local imports
+from proxmox.models.proxmox import proxmox
+from proxmox.utils.yml_parser import read, validate
 from rich.console import Console
 from rich.table import Table
-import typer
 from typing_extensions import Annotated
 from yaml import safe_load
-
-# Local imports
-from addons.proxmox.models.proxmox import proxmox, TokenAuth
-from addons.proxmox.utils.yml_parser import read,validate
 
 from clicx.config import configuration
 from clicx.utils.jinja import render

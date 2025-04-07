@@ -3,4 +3,4 @@ __import__('os').environ['TZ'] = 'UTC'
 import clicx
 
 if __name__ == "__main__":
-    clicx.cli.main()
+    clicx.cli.server.server()

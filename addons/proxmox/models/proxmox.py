@@ -1,62 +1,38 @@
-from typing import Dict, Any, List, Optional, Union
-from proxmoxer import ProxmoxAPI
-from proxmoxer.tools.tasks import Tasks
-from proxmoxer.core import ResourceException
-from proxmoxer.backends.https import Backend
-import urllib3.util
-from clicx.utils.exceptions import SleepyDeveloperError
-from clicx.config import configuration
-from clicx.utils.security import _generate_password
-from pydantic import BaseModel
+import logging
 import time
 from enum import Enum, IntEnum
-from pydantic import BaseModel
+from typing import Any, Dict, List, Optional, Union
 from urllib.parse import quote, quote_plus
 
+import yaml
+import invoke
+import paramiko
+import urllib3.util
+import base64
+import uuid
+from proxmoxer import ProxmoxAPI
+from proxmoxer.backends.https import Backend
+from proxmoxer.core import ResourceException
+from proxmoxer.tools.tasks import Tasks
+from pydantic import BaseModel
 
-import logging
-_logger = logging.getLogger("proxmox")
+from clicx.config import configuration
+from clicx.utils.exceptions import SleepyDeveloperError
+from clicx.utils.security import _generate_password
+from clicx.utils.jinja import render
+
+from proxmox.utils.yml_parser import read
+from proxmox.models.auth import Authtype
+from proxmox.models.enums import StatusCode,BackendType,QemuStatus
+
+from clicx.utils.jinja import render_from_string,load_template
+
+_logger = logging.getLogger(__name__)
 
 #######################
 # MARK: Class Definition and Initialization
 #######################
 
-class Authtype(str,Enum):
-    token="token"
-    password="password"
-
-class BackendType(str,Enum):
-        local = "local"
-        https = "https"
-        openssh = "openssh"
-        ssh_paramiko = "ssh_paramiko"
-
-class TokenAuth(BaseModel):
-    host : str
-    user : str
-    token_name : str
-    token_value : str
-    verify_ssl : bool
-    auth_type : str
-
-class StatusCode(IntEnum):
-    sucess = 0
-    failure = 1
-    def __str__(self):
-        return f"{self.value}"
-    def __repr__(self):
-        return f"{self.value}"
-    
-class QemuStatus(str,Enum):
-    running = "Running"
-    pending = "Pending"
-    failure = "Failure"
-    
-    def __str__(self):
-        return f"{self.value}"
-    def __repr__(self):
-        return f"{self.value}"
-    
 class proxmox:
     """Base class for interacting with Proxmox VE via the proxmoxer API."""
 
@@ -115,7 +91,7 @@ class proxmox:
         return self._proxmoxer
     
 #######################
-# MARK: VM Creation and Configuration
+# MARK: VM Creation
 #######################
 
     def clone_vm(self, node: str, config: Dict[str, Any]) -> str:
@@ -182,7 +158,164 @@ class proxmox:
     
     def get_all_configurations(self):
         return configuration.loaded_config.get("vm_configurations")
+    
+#######################
+# MARK: VM Configuration
+#######################
 
+    def get_software_configurations(self):
+        return configuration.loaded_config.get("get_software_configurations")
+    
+    def pull_docker_image(self, node, vmid, image_name):
+        shell_script = """#!/bin/bash
+    set -e
+
+    # Pull the specified Docker image
+    echo "Pulling Docker image: {{ image_name }}"
+    sudo docker pull "{{ image_name }}"
+
+    if [ $? -eq 0 ]; then
+        echo "Successfully pulled Docker image: {{ image_name }}"
+        exit 0
+    else
+        echo "Failed to pull Docker image: {{ image_name }}"
+        exit 1
+    fi
+    """
+        context = {"image_name": image_name}
+        rendered_script = render_from_string(shell_script, context)
+        return self.execute_shell_script(rendered_script, node, vmid)
+
+    def start_docker_image(self, node, vmid, image_name, container_name, port_mappings="", volume_mappings="", env_vars=""):
+        shell_script = """#!/bin/bash
+    set -e
+
+    # Check if container already exists
+    if sudo docker ps -a --format '{% raw %}{{.Names}}{% endraw %}' | grep -q "^{{ container_name }}$"; then
+        # Check if container is already running
+        if sudo docker ps --format '{% raw %}{{.Names}}{% endraw %}' | grep -q "^{{ container_name }}$"; then
+            echo "Container {{ container_name }} is already running."
+            exit 0
+        else
+            echo "Starting existing container: {{ container_name }}"
+            sudo docker start "{{ container_name }}"
+            exit $?
+        fi
+    else
+        # Create and start a new container
+        echo "Creating and starting new container {{ container_name }} from image {{ image_name }}"
+        sudo docker run -d --name "{{ container_name }}" {{ port_mappings }} {{ volume_mappings }} {{ env_vars }} "{{ image_name }}"
+        
+        if [ $? -eq 0 ]; then
+            echo "Successfully started Docker container: {{ container_name }}"
+            exit 0
+        else
+            echo "Failed to start Docker container: {{ container_name }}"
+            exit 1
+        fi
+    fi
+    """
+        context = {
+            "image_name": image_name,
+            "container_name": container_name,
+            "port_mappings": port_mappings,
+            "volume_mappings": volume_mappings,
+            "env_vars": env_vars
+        }
+        rendered_script = render_from_string(shell_script, context)
+        return self.execute_shell_script(rendered_script, node, vmid)
+
+    def stop_docker_image(self, node, vmid, container_name, remove_container=False):
+        shell_script = """#!/bin/bash
+    set -e
+
+    # Check if container exists
+    if ! sudo docker ps -a --format '{% raw %}{{.Names}}{% endraw %}' | grep -q "^{{ container_name }}$"; then
+        echo "Container {{ container_name }} does not exist."
+        exit 0
+    fi
+
+    # Check if container is running
+    if sudo docker ps --format '{% raw %}{{.Names}}{% endraw %}' | grep -q "^{{ container_name }}$"; then
+        echo "Stopping container: {{ container_name }}"
+        sudo docker stop "{{ container_name }}"
+        STOP_EXIT_CODE=$?
+        
+        if [ $STOP_EXIT_CODE -ne 0 ]; then
+            echo "Failed to stop container: {{ container_name }}"
+            exit $STOP_EXIT_CODE
+        fi
+    fi
+
+    # Remove container if requested
+    if {{ 'true' if remove_container else 'false' }}; then
+        echo "Removing container: {{ container_name }}"
+        sudo docker rm "{{ container_name }}"
+        exit $?
+    fi
+
+    exit 0
+    """
+        context = {
+            "container_name": container_name,
+            "remove_container": remove_container
+        }
+        rendered_script = render_from_string(shell_script, context)
+        return self.execute_shell_script(rendered_script, node, vmid)
+
+
+    def configure_vm(self, node: str, vmid: str, script_name: str):
+        """Execute a predefined shell script template on a VM"""
+        # Check Qemu status
+        qemu_available = self.await_qemu_agent_ready(node=node, vm_id=vmid)
+        if qemu_available != QemuStatus.running:
+            raise ResourceException(status_code=500, status_message="Qemu agent not running")
+    
+        try:
+            # Render the script from template
+            script_content = render(template_name=script_name)
+            
+            # Execute the shell script
+            result = self.execute_shell_script(script_content=script_content, node=node, vmid=vmid)
+            
+            # Return job status
+            return {
+                "status": "completed" if result["status"] == "success" else "failed",
+                "node": node,
+                "vmid": vmid,
+                "script_name": script_name,
+                "result": result
+            }
+        
+        except Exception as e:
+            _logger.error(f"Failed to configure VM {vmid} on node {node}: {str(e)}")
+            raise ResourceException(status_code=500, status_message=f"VM configuration failed: {str(e)}")
+    
+    def configure_vm_custom(self, node: str, vmid: str, script_file):
+        """Execute a custom shell script uploaded by user on a VM"""
+        # Check Qemu status
+        qemu_available = self.await_qemu_agent_ready(node=node, vm_id=vmid)
+        if qemu_available != QemuStatus.running:
+            raise ResourceException(status_code=500, status_message="Qemu agent not running")
+        
+        try:
+            # Read the content from the UploadFile object
+            script_content = script_file.file.read().decode('utf-8')
+            
+            # Execute the shell script
+            result = self.execute_shell_script(script_content=script_content, node=node, vmid=vmid)
+            
+            # Return job status
+            return {
+                "status": "completed" if result["status"] == "success" else "failed",
+                "node": node,
+                "vmid": vmid,
+                "result": result
+            }
+        
+        except Exception as e:
+            _logger.error(f"Failed to configure VM {vmid} on node {node}: {str(e)}")
+            raise ResourceException(status_code=500, status_message=f"VM configuration failed: {str(e)}")
 #######################
 # MARK:VM Management
 #######################
@@ -329,6 +462,63 @@ class proxmox:
 #######################
 # MARK: QEMU Agent Management
 #######################
+
+    def execute_shell_script(self, script_content: str, node: str, vmid: str):
+        """Execute a shell script on the VM using QEMU guest agent"""
+        results = []
+        
+        _logger.info(f"Executing shell script on VM {vmid}")
+        # Replace script name with a uuid, to make sure it is uniqe 
+        script_path = "/tmp/proxmox_script.sh"
+        
+        try:
+            # Use the correct file-write endpoint with proper parameters
+            self._proxmoxer.nodes(node).qemu(vmid).agent("file-write").post(
+                content=script_content,
+                file=script_path,
+                encode=1
+            )
+            
+            # Make the script executable
+            # For the exec endpoint, args should be passed in command string
+            self._proxmoxer.nodes(node).qemu(vmid).agent("exec").post(
+                command="chmod +x " + script_path
+            )
+            
+            # Execute the script with sudo
+            exec_result = self._proxmoxer.nodes(node).qemu(vmid).agent("exec").post(
+                command="sudo " + script_path
+            )
+            
+            # Parse the execution result
+            stdout = exec_result.get('out-data', '')
+            stderr = exec_result.get('err-data', '')
+            exit_code = exec_result.get('exitcode', 1)
+            
+            status = "success" if exit_code == 0 else "failed"
+            
+            results = {
+                "status": status,
+                "stdout": stdout,
+                "stderr": stderr,
+                "exit_code": exit_code
+            }
+            
+            # Clean up the script
+            self._proxmoxer.nodes(node).qemu(vmid).agent("exec").post(
+                command="rm " + script_path
+            )
+            
+            return results
+            
+        except Exception as e:
+            _logger.error(f"Failed to execute script on VM {vmid}: {str(e)}")
+            return {
+                "status": "failed",
+                "error": str(e)
+            }
+
+
     def execute_command(self, node: str, vmid: str, command: str) -> Dict[str, Any]:
         """
         Execute a command on a VM using the QEMU agent.
@@ -366,7 +556,7 @@ class proxmox:
             res = self.get_qemu_agent_status(node, vm_id)
             
             if res["status"] == QemuStatus.running:
-                break
+                return QemuStatus.running
             
             if res["status"] == QemuStatus.failure:
                 raise ValueError(res["exception"])
@@ -375,7 +565,7 @@ class proxmox:
             elapsed_time += interval
 
         _logger.warning(f"Timeout waiting for QEMU agent on VM {vm_id}")
-        return False
+        return QemuStatus.failure
 
     def get_qemu_agent_status(self, node: str, vm_id: str) -> Dict[str, Any]:
         try:
@@ -394,14 +584,14 @@ class proxmox:
 #######################
     def get_vm_ip(self, node: str, vmid: str) -> Optional[Dict[str, str]]:
         """
-        Get the IPv4 address of a VM.
+        Get the IP address of a VM.
         
         Args:
             node: Node name
             vmid: VM ID
             
         Returns:
-            Dictionary with the IPv4 address or None if not found
+            Dictionary with the IP address or None if not found
         """
         try:
             vm_status = self._proxmoxer.nodes(node).qemu(vmid).agent('network-get-interfaces').get()
@@ -412,10 +602,10 @@ class proxmox:
                             'ip': ip_info.get("ip-address")
                         }
 
-            _logger.warning(f"IPv4 address not found for VM {vmid}")
+            _logger.warning(f"IP address not found for VM {vmid}")
             return None
         except Exception as e:
-            _logger.error(f"Error getting IPv4 for VM {vmid}: {e}")
+            _logger.error(f"Error getting IP for VM {vmid}: {e}")
             return None
     
     def get_network_setting_vm(self, node: str, vmid: str) -> Dict[str, Any]:

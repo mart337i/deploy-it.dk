@@ -8,6 +8,7 @@ from fastapi.routing import APIRouter
 
 # Local imports
 from clicx.utils.jinja import render
+from clicx import NAME,VERSION
 
 router = APIRouter(
     tags=["Root"],
@@ -22,9 +23,9 @@ async def root():
     """
     # Prepare template context
     context = {
-        "app_name": "Modern API Platform",
+        "app_name": NAME,
         "title": "FastAPI Platform",
-        "hero_title": "Modern API Platform",
+        "hero_title": f"Modern API Platform: {NAME}",
         "hero_subtitle": "Developer Documentation",
         "hero_description": "Explore our API endpoints and integrate with our services quickly and easily.",
         "github_url": "https://github.com/mart337i/production-ready-fastapi",

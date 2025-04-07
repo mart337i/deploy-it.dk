@@ -12,9 +12,10 @@ import rich
 # Local application imports
 from clicx.config import configuration
 from clicx.utils.middleware import log_request_info
+from clicx import VERSION
 
 import logging
-_logger = logging.getLogger("app")
+_logger = logging.getLogger(__name__)
 
 # Miscellaneous
 import urllib3
@@ -121,13 +122,13 @@ class API(FastAPI):
                         Depends(dependency=log_request_info),
                     )
                 )
-                rich.print(f"[green]Registered router from module: {module_name} and dependency {module.dependency}[/green]")
+                _logger.debug(f"Registered router from module: {module_name} and dependency {module.dependency}")
         except ModuleNotFoundError as e:
-            rich.print(f"[red]Module not found: {module_name}, error: {e}[/red]")
+            _logger.error(f"Module not found: {module_name}, error: {e}")
         except AttributeError as e:
-            rich.print(f"[red]Module '{module_name}' does not have 'router' attribute, error: {e}[/red]")
+            _logger.error(f"Module '{module_name}' does not have 'router' attribute, error: {e}")
         except Exception as e:
-            rich.print(f"[red]Module '{module_name}' failed with the following error: {e}[/red]")
+            _logger.error(f"Module '{module_name}' failed with the following error: {e}")
 
     def register_routes(self):
         """
@@ -151,10 +152,27 @@ class API(FastAPI):
             host=config.get("host"),
             port=config.get("port"),
             reload=config.get("reload"),
-            timeout_keep_alive=10
+            timeout_keep_alive=10,
+            log_config=None,
+            access_log=None
         )
 
 # This is the name of the application, as seen in the server file.
 # It is needed to be able to configure workers and set reload=true on uvicorn. 
 # The name and api instance need to match for uvicorn's lifespan to work correctly
-api : API = API()
+api : API = API(
+    title="Deploy-it API",
+    description= """
+        This REST API, built with FastAPI and Proxmoxer, automates the creation of virtual machines on a Proxmox virtualization environment for Company X. It provides endpoints to deploy, configure, and manage VMs efficiently, streamlining the provisioning process while ensuring consistency and reliability.
+    """,
+    version=VERSION,
+    license_info={
+        'name': "MIT",
+        'url' : "https://mit-license.org/"
+    },
+    contact={
+        "name": "Deploy-it.dk",
+        "url" : "https://www.Deploy-it.dk",
+        "email" : "Info@deploy-it.dk"
+    }
+)

@@ -1,16 +1,17 @@
 # OS
 import os
-from typing import Optional, List, Annotated
+from typing import Annotated, List, Optional
 
 # Third party imports
 import rich
+import typer
+from proxmox.models.auth import TokenAuth
+# Local imports
+from proxmox.models.proxmox import proxmox
 from rich.console import Console
 from rich.table import Table
-import typer
 from typing_extensions import Annotated
 
-# Local imports
-from addons.proxmox.models.proxmox import proxmox, TokenAuth
 from clicx.config import configuration
 
 console = Console()

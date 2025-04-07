@@ -108,6 +108,14 @@ def version():
     from clicx import VERSION
     rich.print(f"[bold]Version:[/bold] {VERSION}")
 
+@cli.command(help="Get loaded ENV")
+def get_env():
+    rich.print(configuration.env)
+
+@cli.command(help="Get loaded config")
+def get_config():
+    rich.print(configuration.loaded_config)
+
 def main():
     """Main entry point for the CLI"""
     discover_commands(addons)
