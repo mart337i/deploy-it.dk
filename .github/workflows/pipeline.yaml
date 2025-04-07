@@ -80,6 +80,9 @@ jobs:
           host: ${{ secrets.DOCKER_HOST }}
           port: ${{ secrets.DOCKER_PORT }}
           user: ${{ secrets.DOCKER_USER }}
-          pass: ${{ secrets.DOCKER_PASS }} # not needed with ssh_key
           ssh_key: ${{ secrets.DOCKER_SSH_KEY }} # not needed with pass
+          registry_host: 'ghcr.io'
+          registry_user: mart337i
+          registry_pass: ${{ secrets.GHCR_PASS }}
+          mode: compose
           env_file: ./envfile
