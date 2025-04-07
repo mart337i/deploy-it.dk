@@ -84,6 +84,13 @@ jobs:
            cat compose.yaml
            echo "Contents of envfile:"
            cat ./envfile
+
+      - name: Test SSH connectivity
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DOCKER_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.DOCKER_USER }}@${{ secrets.DOCKER_HOST }} "docker info"
           
       - name: Docker Stack Deploy with Debug
         uses: cssnr/stack-deploy-action@v1.3.1
@@ -100,3 +107,4 @@ jobs:
           detach: false  # This will show more detailed output
           registry_auth: true  # This adds --with-registry-auth flag
           env_file: ./envfile
+          args: "--remove-orphans --force-recreate --verbose"  # Try adding verbose flag
