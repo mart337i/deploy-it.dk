@@ -73,7 +73,7 @@ jobs:
           test -f compose.yaml || (echo "compose.yaml missing!" && exit 1)
 
       - name: Docker Stack Deploy
-        uses: cssnr/stack-deploy-action@v1
+        uses: cssnr/stack-deploy-action@v1.3.1
         with:
           name: deploy-it.dk
           file: compose.yaml
