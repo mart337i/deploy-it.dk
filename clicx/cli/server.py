@@ -20,6 +20,6 @@ def server(
     reload: Annotated[Optional[bool], typer.Option(help='Enable auto-reload')] = True,
     workers: Annotated[Optional[int], typer.Option(help='Number of worker processes')] = None,
 ):
-    """Start the server application with optional database operations."""
+    """Start the server application."""
     loaded_conf = {key: value for key, value in locals().items() if value is not None and key}
     api.start(config=loaded_conf)
