@@ -72,6 +72,19 @@ jobs:
         run: |
           test -f compose.yaml || (echo "compose.yaml missing!" && exit 1)
 
+      - name: Verify image exists
+        run: |
+          echo "Checking for image on registry..."
+          curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+               https://api.github.com/user/packages/container/deploy-it.dk/versions
+        
+      - name: Verify deployment files
+        run: |
+           echo "Contents of compose.yaml:"
+           cat compose.yaml
+           echo "Contents of envfile:"
+           cat ./envfile
+          
       - name: Docker Stack Deploy
         uses: cssnr/stack-deploy-action@v1.3.1
         with:
@@ -84,5 +97,4 @@ jobs:
           registry_host: 'ghcr.io'
           registry_user: mart337i
           registry_pass: ${{ secrets.GHCR_PASS }}
-          mode: compose
           env_file: ./envfile
