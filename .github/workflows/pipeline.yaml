@@ -85,7 +85,7 @@ jobs:
            echo "Contents of envfile:"
            cat ./envfile
           
-      - name: Docker Stack Deploy
+      - name: Docker Stack Deploy with Debug
         uses: cssnr/stack-deploy-action@v1.3.1
         with:
           name: deploy-it.dk
@@ -93,8 +93,10 @@ jobs:
           host: ${{ secrets.DOCKER_HOST }}
           port: ${{ secrets.DOCKER_PORT }}
           user: ${{ secrets.DOCKER_USER }}
-          ssh_key: ${{ secrets.DOCKER_SSH_KEY }} # not needed with pass
+          ssh_key: ${{ secrets.DOCKER_SSH_KEY }}
           registry_host: 'ghcr.io'
           registry_user: mart337i
           registry_pass: ${{ secrets.GHCR_PASS }}
+          detach: false  # This will show more detailed output
+          registry_auth: true  # This adds --with-registry-auth flag
           env_file: ./envfile
