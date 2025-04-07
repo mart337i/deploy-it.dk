@@ -75,9 +75,9 @@ jobs:
       - name: Docker Stack Deploy
         uses: cssnr/stack-deploy-action@v1
         with:
-          name: fastapi-template
-          file: docker-stack.yaml
-          host: egeskov-group.dk
-          user: deployment
+          name: deploy-it
+          file: compose.yaml
+          host: deploy-it.dk
+          user: sysadmin
           ssh_key: ${{ secrets.DOCKER_SSH_KEY }}
           env_file: ./envfile
