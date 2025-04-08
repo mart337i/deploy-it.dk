@@ -72,14 +72,6 @@ jobs:
         run: |
           test -f compose.yaml || (echo "compose.yaml missing!" && exit 1)
 
-      - name: Log in to GHCR on remote host
-        run: |
-          ssh -i ${{ secrets.DOCKER_SSH_KEY }} sysadmin@deploy-it.dk << 'EOF'
-            echo $GHCR_PAT | docker login ghcr.io -u mart337i --password-stdin
-          EOF
-        env:
-          GHCR_PAT: ${{ secrets.GHCR_PASS }}
-
       - name: Docker Stack Deploy
         uses: cssnr/stack-deploy-action@v1
         with:
@@ -89,3 +81,7 @@ jobs:
           user: sysadmin
           ssh_key: ${{ secrets.DOCKER_SSH_KEY }}
           env_file: ./envfile
+          registry_auth: true
+          registry_host: ghcr.io
+          registry_user: mart337i
+          registry_pass: ${{ secrets.GHCR_PASS }}
