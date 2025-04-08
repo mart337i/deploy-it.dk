@@ -1,16 +1,11 @@
 #!/usr/bin/env python3
-import os
-import re
-import subprocess
-import sys
 import logging
-from typing import Optional, Dict, List, Tuple
-import tempfile
-import shutil
-from clicx.utils.jinja import render
+import os
+import subprocess
+
 from validators import hostname
 
-import logging 
+from clicx.utils.jinja import render
 
 _logger = logging.getLogger(__name__)
 
