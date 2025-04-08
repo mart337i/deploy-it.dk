@@ -1,9 +1,5 @@
 services:
   server:
-    environment:
-      - LOG_LEVEL=INFO
-      - LOG_TO_FILE=1
-      - CLICX_DEBUG=0
     privileged: true
     image: ghcr.io/mart337i/deploy-it.dk:${GIT_COMMIT_HASH}
     ports:
