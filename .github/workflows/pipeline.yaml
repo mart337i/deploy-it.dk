@@ -54,7 +54,6 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/mart337i/deploy-it.dk:latest
             ghcr.io/mart337i/deploy-it.dk:${{ github.sha }}
 
   deploy:
