@@ -89,11 +89,6 @@ class OpenVpn:
             subprocess.run(["cp", f"{self.easy_rsa}pki/crl.pem", "/etc/openvpn/crl.pem"], check=True)
             subprocess.run(["chmod", "644", "/etc/openvpn/crl.pem"], check=True)
             
-            subprocess.run(f"find /home/ -maxdepth 2 -name '{client}.ovpn' -delete", shell=True)
-            
-            if os.path.exists(f"/root/{client}.ovpn"):
-                os.remove(f"/root/{client}.ovpn")
-            
             with open("/etc/openvpn/ipp.txt", "r") as f:
                 lines = f.readlines()
             
