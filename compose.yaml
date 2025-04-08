@@ -1,5 +1,5 @@
 services:
   server:
     image: ghcr.io/mart337i/deploy-it.dk:latest
-    ports:
+    ports:d
       - 8000:8000
