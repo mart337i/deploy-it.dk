@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - develop
 
 permissions:
   contents: read
@@ -49,10 +50,10 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
+          no-cache: true
           context: .
           push: true
           tags: |
-            ghcr.io/mart337i/deploy-it.dk:latest
             ghcr.io/mart337i/deploy-it.dk:${{ github.sha }}
 
   deploy:
@@ -80,3 +81,7 @@ jobs:
           user: sysadmin
           ssh_key: ${{ secrets.DOCKER_SSH_KEY }}
           env_file: ./envfile
+          registry_auth: true
+          registry_host: ghcr.io
+          registry_user: mart337i
+          registry_pass: ${{ secrets.GHCR_PASS }}

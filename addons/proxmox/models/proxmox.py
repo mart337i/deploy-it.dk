@@ -333,6 +333,7 @@ class proxmox:
 
     def delete_vm(self, node: str, vmid: str, **kwargs) -> Dict[str, Any]:
         """Delete a VM."""
+        # TODO Write a check to see if the instance is runnning and if it is, shut it down. 
         return self._proxmoxer.nodes(node).qemu(vmid).delete(**kwargs)
 
     def start_vm(self, node: str, vmid: str, **kwargs) -> Dict[str, Any]:
