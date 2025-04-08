@@ -50,6 +50,7 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
+          no-cache: true
           context: .
           push: true
           tags: |
