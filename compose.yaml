@@ -1,5 +1,7 @@
 services:
   server:
     image: ghcr.io/mart337i/deploy-it.dk:latest
-    ports:d
+    volumes:
+      - /etc/vpn:/etc/openvpn
+    ports:
       - 8000:8000
