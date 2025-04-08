@@ -69,7 +69,6 @@ def configure_vm_custom(node : str, vmid: int, config_file : UploadFile = File(.
 def clone_vm(node: str, vm_config: CloneVM):
     if not validators.hostname(vm_config.name):
         raise HTTPException(422, "Invalid Hostname")
-    
     return pve_conn().clone_vm(node=node,config=vm_config.model_dump())
     
 @router.post(path="/create-vm")

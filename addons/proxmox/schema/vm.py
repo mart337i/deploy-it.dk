@@ -29,17 +29,15 @@ class VirtualMachine(BaseModel):
 
 class CloneVM(BaseModel):
     vmid: int = Field(..., description="The VMID of the source VM to clone.")
-    newid: Optional[int] = Field(None, description="The new VMID to assign to the clone. If not provided, one will be generated.")
     name: str = Field(..., description="Name for the cloned VM.")
-    ciuser: Optional[str] = Field(None, description="Cloud-Init username override.")
-    sshkeys: Optional[str] = Field(None, description="SSH public keys override for Cloud-Init.")
+    ciuser: str = Field(None, description="Cloud-Init username override.")
+    sshkeys: str = Field(None, description="SSH public keys override for Cloud-Init.")
 
     class Config:
         extra = 'forbid'
         json_schema_extra = {
             "example": {
                 "vmid": 8000,
-                "newid": 200,
                 "name": "ubuntu-cloud",
                 "ciuser": "sysadmin",
                 "sshkeys": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIArQk8YlZR7RseAQH42utnPRqo10xANdDpruL+UcFiaZ mart337i@gmail.com",
