@@ -125,8 +125,6 @@ sudo ln -s /etc/machine-id /var/lib/dbus/machine-id
 
 This will enable the created template to generate a new machine id instead of haveing to create on manually using `sudo systemd-machine-id-setup
 `
-
-
 ## Good to know:
 - Boot time on ubuntu is slowed by `systemd-networkd-wait-online` 
     - Posible fix: https://askubuntu.com/questions/1511087/systemd-networkd-wait-online-service-timing-out-during-boot
