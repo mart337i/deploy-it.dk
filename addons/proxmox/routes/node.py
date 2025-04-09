@@ -1,10 +1,11 @@
 
 from typing import Any
 
+from fastapi import Depends
 from fastapi.routing import APIRouter
 from proxmox.models.proxmox import proxmox
 from proxmox.models.auth import TokenAuth
-
+from proxmox.middleware.auth import pass_through_authentication
 
 from clicx.config import configuration
 
@@ -13,7 +14,7 @@ router = APIRouter(
     tags=["Proxmox nodes"],
 )
 
-dependency = []
+dependency = [Depends(dependency=pass_through_authentication)]
 
 def pve_conn(
     host: str = configuration.loaded_config['host'],

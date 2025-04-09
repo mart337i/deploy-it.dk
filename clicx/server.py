@@ -116,13 +116,15 @@ class API(FastAPI):
         try:
             module = importlib.import_module(module_name)
             if hasattr(module, 'router') and hasattr(module, 'dependency'):
+                dependencies = module.dependency.copy()
+                dependencies.append(Depends(dependency=log_request_info))
+                
                 self.include_router(
                     router=module.router,
-                    dependencies=module.dependency.append(
-                        Depends(dependency=log_request_info),
-                    )
+                    dependencies=dependencies
                 )
-                _logger.debug(f"Registered router from module: {module_name} and dependency {module.dependency}")
+
+                _logger.debug(f"Registered router from module: {module_name} and dependency {dependencies}")
         except ModuleNotFoundError as e:
             _logger.error(f"Module not found: {module_name}, error: {e}")
         except AttributeError as e:

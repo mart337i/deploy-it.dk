@@ -2,7 +2,7 @@
 from typing import Annotated, Any
 
 import validators
-from fastapi import File, HTTPException, UploadFile
+from fastapi import File, HTTPException, UploadFile, Depends
 from fastapi.routing import APIRouter
 from proxmox.models.auth import TokenAuth
 from proxmox.models.proxmox import proxmox
@@ -13,12 +13,15 @@ from proxmox.utils.yml_parser import validate as yml_validate
 
 from clicx.config import configuration
 
+from proxmox.middleware.auth import pass_through_authentication
+
+
 router = APIRouter(
     prefix=f"/proxmox/v1/vm",
     tags=["Virtual machine control"],
 )
 
-dependency = []
+dependency = [Depends(dependency=pass_through_authentication)]
 
 def pve_conn(
     host: str = configuration.loaded_config['host'],
