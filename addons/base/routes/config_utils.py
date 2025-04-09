@@ -2,6 +2,7 @@ from datetime import datetime
 
 # Third-party imports
 import rich
+import json
 import typer
 from fastapi.responses import HTMLResponse
 from fastapi.routing import APIRouter
@@ -18,8 +19,8 @@ dependency = []
 
 @router.get("/get_config", response_class=HTMLResponse)
 async def get_config() -> str:
-    return {"ok": f"{configuration.loaded_config}"}
+    return json.dumps(configuration.loaded_config)
 
 @router.get("/get_env", response_class=HTMLResponse)
 async def get_env() -> str:
-    return {"ok": f"{configuration.env}"}
+    return json.dumps(configuration.env)
