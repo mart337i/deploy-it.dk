@@ -53,11 +53,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-      - name: Configure host mapping
-        run: |
-          echo "192.168.1.40 deploy-it.dk" | sudo tee -a /etc/hosts
-          cat /etc/hosts
-          ping -c 2 deploy-it.dk || true
       - name: Create env file
         run: |
           echo "GIT_COMMIT_HASH=${{ github.sha }}" > ./envfile
