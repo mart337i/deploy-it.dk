@@ -24,6 +24,7 @@ from clicx.utils.jinja import render
 from proxmox.utils.yml_parser import read
 from proxmox.models.auth import Authtype
 from proxmox.models.enums import StatusCode,BackendType,QemuStatus
+from proxmox.utils.exceptions import InvalidConfiguration
 
 from clicx.utils.jinja import render_from_string,load_template
 
@@ -104,21 +105,15 @@ class proxmox:
         clone_id = config.get('vmid')
 
         if not chosen_vm_config:
-            clone_id = '9000'
-            chosen_vm_config = available_configuration.get(clone_id)
-            error = f"Unable to determine template id. Defaulted to template_id {clone_id}"
-            msg.append(error)
+            raise InvalidConfiguration("Chould not determine config by the id provided")
 
         disk_size = chosen_vm_config['hardware'].get("disksize")
         disk = chosen_vm_config['hardware'].get("disk")
         ssh_key = config.get("sshkeys")
 
         if not disk and not disk_size:
-            disk = 'scsi0'
-            disk_size = 30
-            error = f"Unable to define disk and disk size. Defaulted to disk {disk} and disksize {disk_size}"
-            _logger.error(error)
-            msg.append(error)
+            raise InvalidConfiguration("Chould not determine disk and disk size")
+
 
         if not ssh_key: 
             raise ValueError("No ssh key found, Unable to create Vm without it.")
@@ -132,7 +127,7 @@ class proxmox:
         )
 
         tasks.append(self.blocking_status(node=node,task_id=clone_vm))
-        password = "passwordpassword" # _generate_password(30)
+        password = _generate_password(8)
         self._proxmoxer.nodes(node).qemu(new_vmid).config.put(
             ciuser = config.get("ciuser"),
             cipassword = password,
@@ -140,7 +135,9 @@ class proxmox:
         )
 
         
-        self.resize_vm_disk(node=node,vm_id=new_vmid,disk=disk,new_size=f'{disk_size}G')
+        task = self.resize_disk(node=node,vm_id=new_vmid,disk_name=disk,size=f'{disk_size}G')
+        self.blocking_status(node=node,task_id=task)
+
         self._proxmoxer.nodes(node).qemu(new_vmid).status.start.post()
 
         return {
@@ -163,105 +160,39 @@ class proxmox:
 # MARK: VM Configuration
 #######################
 
-    def get_software_configurations(self):
-        return configuration.loaded_config.get("get_software_configurations")
+    def install_docker_engine(self,node,vmid):
+        script = render('install_docker.sh')
+        return self.execute_shell_script(script, node, vmid)
     
     def pull_docker_image(self, node, vmid, image_name):
-        shell_script = """#!/bin/bash
-    set -e
-
-    # Pull the specified Docker image
-    echo "Pulling Docker image: {{ image_name }}"
-    sudo docker pull "{{ image_name }}"
-
-    if [ $? -eq 0 ]; then
-        echo "Successfully pulled Docker image: {{ image_name }}"
-        exit 0
-    else
-        echo "Failed to pull Docker image: {{ image_name }}"
-        exit 1
-    fi
-    """
-        context = {"image_name": image_name}
-        rendered_script = render_from_string(shell_script, context)
-        return self.execute_shell_script(rendered_script, node, vmid)
-
-    def start_docker_image(self, node, vmid, image_name, container_name, port_mappings="", volume_mappings="", env_vars=""):
-        shell_script = """#!/bin/bash
-    set -e
-
-    # Check if container already exists
-    if sudo docker ps -a --format '{% raw %}{{.Names}}{% endraw %}' | grep -q "^{{ container_name }}$"; then
-        # Check if container is already running
-        if sudo docker ps --format '{% raw %}{{.Names}}{% endraw %}' | grep -q "^{{ container_name }}$"; then
-            echo "Container {{ container_name }} is already running."
-            exit 0
-        else
-            echo "Starting existing container: {{ container_name }}"
-            sudo docker start "{{ container_name }}"
-            exit $?
-        fi
-    else
-        # Create and start a new container
-        echo "Creating and starting new container {{ container_name }} from image {{ image_name }}"
-        sudo docker run -d --name "{{ container_name }}" {{ port_mappings }} {{ volume_mappings }} {{ env_vars }} "{{ image_name }}"
+        shell_script = render("pull_image.sh", {
+            "image_name":image_name
+        })
         
-        if [ $? -eq 0 ]; then
-            echo "Successfully started Docker container: {{ container_name }}"
-            exit 0
-        else
-            echo "Failed to start Docker container: {{ container_name }}"
-            exit 1
-        fi
-    fi
-    """
-        context = {
-            "image_name": image_name,
-            "container_name": container_name,
-            "port_mappings": port_mappings,
-            "volume_mappings": volume_mappings,
-            "env_vars": env_vars
-        }
-        rendered_script = render_from_string(shell_script, context)
-        return self.execute_shell_script(rendered_script, node, vmid)
+        return self.execute_shell_script(shell_script, node, vmid)
+
+    def start_docker_image(self, node, vmid, image_name, container_name, port_mapping="", volume_mapping="", env_vars=""):
+        shell_script = render(
+            template_name="start_docker_image.sh",
+            context = {
+                "image_name": image_name,
+                "container_name": container_name,
+                "port_mapping": port_mapping,  # Make sure these match
+                "volume_mapping": volume_mapping,  # Make sure these match
+                "env_vars": env_vars
+            })
+
+
+        return self.execute_shell_script(shell_script, node, vmid)
 
     def stop_docker_image(self, node, vmid, container_name, remove_container=False):
-        shell_script = """#!/bin/bash
-    set -e
-
-    # Check if container exists
-    if ! sudo docker ps -a --format '{% raw %}{{.Names}}{% endraw %}' | grep -q "^{{ container_name }}$"; then
-        echo "Container {{ container_name }} does not exist."
-        exit 0
-    fi
-
-    # Check if container is running
-    if sudo docker ps --format '{% raw %}{{.Names}}{% endraw %}' | grep -q "^{{ container_name }}$"; then
-        echo "Stopping container: {{ container_name }}"
-        sudo docker stop "{{ container_name }}"
-        STOP_EXIT_CODE=$?
-        
-        if [ $STOP_EXIT_CODE -ne 0 ]; then
-            echo "Failed to stop container: {{ container_name }}"
-            exit $STOP_EXIT_CODE
-        fi
-    fi
-
-    # Remove container if requested
-    if {{ 'true' if remove_container else 'false' }}; then
-        echo "Removing container: {{ container_name }}"
-        sudo docker rm "{{ container_name }}"
-        exit $?
-    fi
-
-    exit 0
-    """
-        context = {
+        shell_script = render(
+            template_name="stop_docker_image.sh",
+            context = {
             "container_name": container_name,
             "remove_container": remove_container
-        }
-        rendered_script = render_from_string(shell_script, context)
-        return self.execute_shell_script(rendered_script, node, vmid)
+        })
+        return self.execute_shell_script(shell_script, node, vmid)
 
 
     def configure_vm(self, node: str, vmid: str, script_name: str):
@@ -320,8 +251,12 @@ class proxmox:
 # MARK:VM Management
 #######################
 
-    def resize_vm_disk(self,node,vm_id,disk,new_size):
-        return self._proxmoxer.nodes(node).qemu(vm_id).resize.put(disk=disk, size=new_size)
+    def resize_disk(self, node, vm_id, disk_name, size):
+        task = self._proxmoxer.nodes(node).qemu(vm_id).resize.put(
+            disk=disk_name,
+            size=size
+        )
+        return task
 
     def list_vms(self, node: str, **kwargs) -> List[Dict[str, Any]]:
         """List all VMs on a node."""
@@ -466,12 +401,10 @@ class proxmox:
 
     def execute_shell_script(self, script_content: str, node: str, vmid: str):
         """Execute a shell script on the VM using QEMU guest agent"""
-        results = []
-        
         _logger.info(f"Executing shell script on VM {vmid}")
-        # Replace script name with a uuid, to make sure it is uniqe 
+        # Replace script name with a uuid, to make sure it is uniqe
         script_path = "/tmp/proxmox_script.sh"
-        
+    
         try:
             # Use the correct file-write endpoint with proper parameters
             self._proxmoxer.nodes(node).qemu(vmid).agent("file-write").post(
@@ -479,39 +412,69 @@ class proxmox:
                 file=script_path,
                 encode=1
             )
-            
+        
             # Make the script executable
-            # For the exec endpoint, args should be passed in command string
-            self._proxmoxer.nodes(node).qemu(vmid).agent("exec").post(
-                command="chmod +x " + script_path
+            # For the exec endpoint, command should be an array of strings
+            chmod_res = self._proxmoxer.nodes(node).qemu(vmid).agent("exec").post(
+                command=["chmod", "+x", script_path]
             )
             
+            # Wait for chmod to complete
+            chmod_status = self._proxmoxer.nodes(node).qemu(vmid).agent("exec-status").get(
+                pid=chmod_res.get('pid')
+            )
+            
+            # Check if chmod was successful
+            if chmod_status.get('exitcode', 1) != 0:
+                raise Exception(f"Failed to make script executable: {chmod_status.get('err-data', '')}")
+        
             # Execute the script with sudo
-            exec_result = self._proxmoxer.nodes(node).qemu(vmid).agent("exec").post(
-                command="sudo " + script_path
+            exec_res = self._proxmoxer.nodes(node).qemu(vmid).agent("exec").post(
+                command=["sudo", script_path]
             )
             
+            # Poll for completion
+            exec_result = None
+            while True:
+                exec_status = self._proxmoxer.nodes(node).qemu(vmid).agent("exec-status").get(
+                    pid=exec_res.get('pid')
+                )
+                
+                # Check if command has exited
+                if exec_status.get('exited', False):
+                    exec_result = exec_status
+                    break
+                
+                # Wait before polling again
+                time.sleep(1)
+        
             # Parse the execution result
             stdout = exec_result.get('out-data', '')
             stderr = exec_result.get('err-data', '')
             exit_code = exec_result.get('exitcode', 1)
-            
+        
             status = "success" if exit_code == 0 else "failed"
-            
+        
             results = {
+                "exec_result": exec_result,
                 "status": status,
                 "stdout": stdout,
                 "stderr": stderr,
                 "exit_code": exit_code
             }
-            
+        
             # Clean up the script
-            self._proxmoxer.nodes(node).qemu(vmid).agent("exec").post(
-                command="rm " + script_path
+            cleanup_res = self._proxmoxer.nodes(node).qemu(vmid).agent("exec").post(
+                command=["rm", script_path]
             )
             
+            # Wait for cleanup to complete
+            self._proxmoxer.nodes(node).qemu(vmid).agent("exec-status").get(
+                pid=cleanup_res.get('pid')
+            )
+        
             return results
-            
+        
         except Exception as e:
             _logger.error(f"Failed to execute script on VM {vmid}: {str(e)}")
             return {

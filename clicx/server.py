@@ -154,7 +154,7 @@ class API(FastAPI):
             host=config.get("host"),
             port=config.get("port"),
             reload=config.get("reload"),
-            timeout_keep_alive=10,
+            timeout_keep_alive=30,
             log_config=None,
             access_log=None
         )
