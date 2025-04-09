@@ -1,16 +1,11 @@
 #!/usr/bin/env python3
-import os
-import re
-import subprocess
-import sys
 import logging
-from typing import Optional, Dict, List, Tuple
-import tempfile
-import shutil
-from clicx.utils.jinja import render
+import os
+import subprocess
+
 from validators import hostname
 
-import logging 
+from clicx.utils.jinja import render
 
 _logger = logging.getLogger(__name__)
 
@@ -88,11 +83,6 @@ class OpenVpn:
             
             subprocess.run(["cp", f"{self.easy_rsa}pki/crl.pem", "/etc/openvpn/crl.pem"], check=True)
             subprocess.run(["chmod", "644", "/etc/openvpn/crl.pem"], check=True)
-            
-            subprocess.run(f"find /home/ -maxdepth 2 -name '{client}.ovpn' -delete", shell=True)
-            
-            if os.path.exists(f"/root/{client}.ovpn"):
-                os.remove(f"/root/{client}.ovpn")
             
             with open("/etc/openvpn/ipp.txt", "r") as f:
                 lines = f.readlines()
