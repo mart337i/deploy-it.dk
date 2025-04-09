@@ -24,7 +24,7 @@ class OpenVpn:
         self.tlskey_content = self._read(filepath=self.tlskey)
         self.ca_cert_content = self._read(filepath=self.ca_cert)
     
-    def _read(filepath):
+    def _read(self,filepath):
         try:
             result = subprocess.run(["sudo", "cat", filepath], capture_output=True, text=True, check=True)
             return result.stdout
