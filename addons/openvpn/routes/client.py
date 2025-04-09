@@ -11,6 +11,7 @@ router = APIRouter(
     tags=["VPN Management"],
 )
 
+dependency = []
 
 @router.post("/client", response_model=ClientResponse, status_code=status.HTTP_201_CREATED)
 def create_client(client_request: ClientRequest) -> Any:
