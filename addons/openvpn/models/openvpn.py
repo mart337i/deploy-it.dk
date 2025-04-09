@@ -23,13 +23,14 @@ class OpenVpn:
         
         self.tlskey_content = self._read(filepath=self.tlskey)
         self.ca_cert_content = self._read(filepath=self.ca_cert)
-
-    def _read(self,filepath):
-        content = False
-        with open(filepath, 'r') as f:
-            content = f.read()
-            f.close()
-        return content
+    
+    def _read(filepath):
+        try:
+            result = subprocess.run(["sudo", "cat", filepath], capture_output=True, text=True, check=True)
+            return result.stdout
+        except subprocess.CalledProcessError as e:
+            print(f"Error reading file: {e}")
+            return False
 
     def already_exists(self,client_name):
        if not os.path.exists(f"{self.private_dir}{client_name}.key"):
