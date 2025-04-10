@@ -177,8 +177,8 @@ class proxmox:
             context = {
                 "image_name": image_name,
                 "container_name": container_name,
-                "port_mapping": port_mapping,  # Make sure these match
-                "volume_mapping": volume_mapping,  # Make sure these match
+                "port_mapping": port_mapping,
+                "volume_mapping": volume_mapping,
                 "env_vars": env_vars
             })
 
@@ -191,6 +191,15 @@ class proxmox:
             context = {
             "container_name": container_name,
             "remove_container": remove_container
+        })
+        return self.execute_shell_script(shell_script, node, vmid)
+    
+    def create_proxy_conf(self, node, vmid, hostname, ip):
+        shell_script = render(
+            template_name="create_proxy_conf.sh",
+            context = {
+            "hostname": hostname,
+            "ip": ip
         })
         return self.execute_shell_script(shell_script, node, vmid)
 

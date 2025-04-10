@@ -75,6 +75,9 @@ def start_docker_image(node: str, vmid: int, image_name: str, container_name: st
 def stop_docker_image(node, vmid, container_name, remove_container):
     return pve_conn().stop_docker_image(node, vmid, container_name, remove_container)
 
+@router.post(path="/create_proxy_conf")
+def create_proxy_conf(node : str, hostname : str, ip : str, vmid : int = 3000):
+    return pve_conn().create_proxy_conf(node,vmid,hostname,ip)
 
 @router.get(path="/get_next_available_vm_id")
 def get_next_available_vm_id() -> Any:
