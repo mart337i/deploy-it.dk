@@ -2,7 +2,7 @@
 from typing import Annotated, Any
 
 import validators
-from fastapi import File, HTTPException, UploadFile
+from fastapi import File, HTTPException, UploadFile, Depends
 from fastapi.routing import APIRouter
 from proxmox.models.auth import TokenAuth
 from proxmox.models.proxmox import proxmox
@@ -13,12 +13,15 @@ from proxmox.utils.yml_parser import validate as yml_validate
 
 from clicx.config import configuration
 
+from proxmox.middleware.auth import pass_through_authentication
+
+
 router = APIRouter(
     prefix=f"/proxmox/v1/vm",
     tags=["Virtual machine control"],
 )
 
-dependency = []
+dependency = [Depends(dependency=pass_through_authentication)]
 
 def pve_conn(
     host: str = configuration.loaded_config['host'],
@@ -47,9 +50,31 @@ def get_vm_ids(node : str) -> Any:
 def get_all_configurations() -> Any:
     return pve_conn().get_all_configurations()
 
-@router.get(path="/get_software_configurations")
-def get_software_configurations() -> Any:
-    return pve_conn().get_software_configurations()
+@router.post(path="/install_docker_engine")
+def install_docker_engine(node,vmid):
+    return pve_conn().install_docker_engine(node,vmid)
+
+@router.post(path="/pull_docker_image")
+def pull_docker_image(node,vmid,image_name):
+    return pve_conn().pull_docker_image(node,vmid,image_name)
+
+@router.post(path="/start_docker_image")
+def start_docker_image(node: str, vmid: int, image_name: str, container_name: str,
+                       port_mapping: str = "", volume_mapping: str = "", env_vars: str = ""):
+    return pve_conn().start_docker_image(
+        node=node,
+        vmid=vmid,
+        image_name=image_name,
+        container_name=container_name,
+        port_mapping=port_mapping,
+        volume_mapping=volume_mapping,
+        env_vars=env_vars
+    )
+
+@router.post(path="/stop_docker_image")
+def stop_docker_image(node, vmid, container_name, remove_container):
+    return pve_conn().stop_docker_image(node, vmid, container_name, remove_container)
+
 
 @router.get(path="/get_next_available_vm_id")
 def get_next_available_vm_id() -> Any:
@@ -69,12 +94,10 @@ def configure_vm_custom(node : str, vmid: int, config_file : UploadFile = File(.
 def clone_vm(node: str, vm_config: CloneVM):
     if not validators.hostname(vm_config.name):
         raise HTTPException(422, "Invalid Hostname")
-    
     try: 
-        pve_conn().clone_vm(node=node,config=vm_config.model_dump())
+        return pve_conn().clone_vm(node=node,config=vm_config.model_dump())
     except Exception as e:
         raise HTTPException(500, e)
-    return 
     
 @router.post(path="/create-vm")
 def create_vm(node: str, vm_config: VirtualMachine):
