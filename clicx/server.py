@@ -7,7 +7,6 @@ from fastapi import Depends, FastAPI
 from fastapi.routing import APIRoute
 from starlette.middleware.cors import CORSMiddleware
 import uvicorn
-import rich
 
 # Local application imports
 from clicx.config import configuration
@@ -52,12 +51,16 @@ class API(FastAPI):
             license_info=license_info,
             contact=contact,
         )
-        
-        # Setup the application
+
+    def configure(self):
+        """
+        Configure the application - only called when server command is executed.
+        """
         self.setup_base_routes()
         self.setup_addon_routers()
         self.use_route_names_as_operation_ids()
         self.setup_middleware()
+        return self
 
     def setup_base_routes(self) -> None:
         pass
@@ -146,35 +149,39 @@ class API(FastAPI):
                     relative_path = os.path.relpath(os.path.join(root, file), addons_dir)
                     module_name = os.path.join(addons_dir_name, relative_path).replace(os.sep, '.')[:-3]
                     self.include_router_from_module(module_name=module_name)
-
-    def start(self, config : dict):
+    
+    def start(self, config: dict):
+        # Start the server with uvicorn
         uvicorn.run(
-            app=f"clicx.cli.server:api",
-            lifespan="on",
+            app=f"clicx.server:create_api",
             host=config.get("host"),
             port=config.get("port"),
-            reload=config.get("reload"),
+            reload=True,
+            workers=config.get("workers"),
             timeout_keep_alive=30,
             log_config=None,
-            access_log=None
+            access_log=None,
+            factory=True
         )
 
-# This is the name of the application, as seen in the server file.
-# It is needed to be able to configure workers and set reload=true on uvicorn. 
-# The name and api instance need to match for uvicorn's lifespan to work correctly
-api : API = API(
-    title="Deploy-it API",
-    description= """
-        This REST API, built with FastAPI and Proxmoxer, automates the creation of virtual machines on a Proxmox virtualization environment for Company X. It provides endpoints to deploy, configure, and manage VMs efficiently, streamlining the provisioning process while ensuring consistency and reliability.
-    """,
-    version=VERSION,
-    license_info={
-        'name': "MIT",
-        'url' : "https://mit-license.org/"
-    },
-    contact={
-        "name": "Deploy-it.dk",
-        "url" : "https://www.Deploy-it.dk",
-        "email" : "Info@deploy-it.dk"
-    }
-)
+def create_api():
+    api = API(
+        title="Deploy-it API",
+        description= """
+            This REST API, built with FastAPI and Proxmoxer, automates the creation of virtual machines on a Proxmox virtualization environment for Company X. It provides endpoints to deploy, configure, and manage VMs efficiently, streamlining the provisioning process while ensuring consistency and reliability.
+        """,
+        version=VERSION,
+        license_info={
+            'name': "MIT",
+            'url' : "https://mit-license.org/"
+        },
+        contact={
+            "name": "Deploy-it.dk",
+            "url" : "https://www.Deploy-it.dk",
+            "email" : "Info@deploy-it.dk"
+        }
+    )
+
+    api.configure()
+
+    return api
