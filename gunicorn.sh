@@ -27,4 +27,4 @@ gunicorn clicx.server:create_api \
   --group=$USERNAME \
   --bind=$BIND_SUB \
   --log-level=$LOG_LEVEL \
-  --log-file=$DIR/logs/application.log
+  --log-file=$DIR/logs/app.log

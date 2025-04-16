@@ -8,7 +8,7 @@ async def log_request_info(request: Request):
     """
     Dependency function to log request information.
     """
-    _logger.error(
+    _logger.debug(
         f"{request.method} request to {request.url} metadata\n"
         f"\tHeaders: {request.headers}\n"
         f"\tPath Params: {request.path_params}\n"
