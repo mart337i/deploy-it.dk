@@ -8,7 +8,7 @@ cli = typer.Typer()
     context_settings={"allow_extra_args": True, "ignore_unknown_options": True}
 )
 def server(
-    ctx: typer.Context,
+    ctx: typer.Context = {},
     host: Annotated[Optional[str], typer.Option(help='Bind socket to this host')] = "0.0.0.0",
     port: Annotated[Optional[int], typer.Option(help='Bind socket to this port')] = 8000,
     reload: Annotated[Optional[bool], typer.Option(help='Enable auto-reload')] = True,
