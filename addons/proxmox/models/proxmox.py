@@ -196,13 +196,23 @@ class proxmox:
     
     def create_proxy_conf(self, node, vmid, hostname, ip):
         shell_script = render(
-            template_name="create_proxy_conf.sh",
+            template_name="simple_create_proxy_conf.sh",
             context = {
             "hostname": hostname,
             "ip": ip
         })
         return self.execute_shell_script(shell_script, node, vmid)
-
+    
+    def create_proxy_for_docker_conf(self, node, vmid, hostname, ip, port, name):
+        shell_script = render(
+            template_name="create_proxy_conf.sh",
+            context = {
+            "hostname": hostname,
+            "ip": ip,
+            "port" : port,
+            "name": name,
+        })
+        return self.execute_shell_script(shell_script, node, vmid)
 
     def configure_vm(self, node: str, vmid: str, script_name: str):
         """Execute a predefined shell script template on a VM"""
