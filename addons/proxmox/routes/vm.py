@@ -4,7 +4,7 @@ import validators
 from fastapi import File, HTTPException, UploadFile, Depends
 from fastapi.routing import APIRouter
 from proxmox.models.auth import TokenAuth
-from proxmox.service import Proxmox
+from proxmox.service.proxmox import Proxmox
 from proxmox.service import proxmox
 from proxmox.schema.vm import CloneVM, VirtualMachine
 

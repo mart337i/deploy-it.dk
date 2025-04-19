@@ -1,14 +1,12 @@
 import logging
 from typing import Any, Dict, List, Optional
-from proxmox.service.proxmox import Proxmox
-from proxmoxer import ProxmoxAPI
 
 _logger = logging.getLogger(__name__)
 
 class NetworkManagment():
 
-    def __init__(self, connection) -> Proxmox:
-        self._proxmoxer : ProxmoxAPI = connection
+    def __init__(self, connection):
+        self._proxmoxer  = connection
 
 
 #######################

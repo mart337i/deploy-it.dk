@@ -2,8 +2,6 @@ import logging
 import time
 from typing import Any, Dict, List
 
-from proxmox.service.proxmox import Proxmox
-from proxmoxer import ProxmoxAPI
 
 from proxmox.enums.qemu import QemuStatus
 from proxmox.enums.status import StatusCode
@@ -13,8 +11,8 @@ _logger = logging.getLogger(__name__)
 
 class QemuAgentManagement():
 
-    def __init__(self, connection) -> Proxmox:
-        self._proxmoxer : ProxmoxAPI = connection
+    def __init__(self, connection):
+        self._proxmoxer  = connection
 
     """Manages QEMU agent operations."""
     

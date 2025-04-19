@@ -3,7 +3,7 @@ from proxmoxer import ProxmoxAPI
 
 from proxmox.enums.auth import Authtype
 from proxmox.enums.proxmox import BackendType
-from proxmox.utils.exceptions import SleepyDeveloperError
+from clicx.utils.exceptions import SleepyDeveloperError
 from clicx.config import configuration
 
 # Import managers

@@ -1,14 +1,12 @@
 import logging
 from typing import Any, Dict, List
-from proxmox.service.proxmox import Proxmox
-from proxmoxer import ProxmoxAPI
 
 _logger = logging.getLogger(__name__)
 
 class UserManagement():
 
-    def __init__(self, connection) -> Proxmox:
-        self._proxmoxer : ProxmoxAPI = connection
+    def __init__(self, connection):
+        self._proxmoxer  = connection
 
 #######################
 # MARK: User and Access Management

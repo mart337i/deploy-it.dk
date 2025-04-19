@@ -1,10 +1,8 @@
-from proxmox.service.proxmox import Proxmox
-from proxmoxer import ProxmoxAPI
 
 class StorageManagement():
 
-    def __init__(self, connection) -> Proxmox:
-        self._proxmoxer : ProxmoxAPI = connection
+    def __init__(self, connection):
+        self._proxmoxer  = connection
 
 
     def get_iso_files(self, node):

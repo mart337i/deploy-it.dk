@@ -11,16 +11,13 @@ from clicx.utils.security import _generate_password
 
 _logger = logging.getLogger(__name__)
 
-from proxmox.service.proxmox import Proxmox
-from proxmoxer import ProxmoxAPI
-
 #######################
 # MARK: VM Creation
 #######################
 class VirtualMachineMangement():
 
-    def __init__(self, connection) -> Proxmox:
-        self._proxmoxer : ProxmoxAPI = connection
+    def __init__(self, connection):
+        self._proxmoxer  = connection
 
     def clone_vm(self, node: str, config: Dict[str, Any]) -> str:
         tasks = []
