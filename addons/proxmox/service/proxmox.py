@@ -13,7 +13,8 @@ from proxmox.service.qemu import QemuAgentManagement
 from proxmox.service.software import SoftwareMangement
 from proxmox.service.storage import StorageManagement
 from proxmox.service.task import TaskManagement
-from proxmox.service.vm import VirtualMachineMangement
+from proxmox.service.vm import VirtualMachineManagement
+from proxmox.service.user import UserManagement
 
 class Proxmox:
     """Main client for interacting with Proxmox VE via the proxmoxer API."""
@@ -67,15 +68,16 @@ class Proxmox:
         self._host = host
         self.available_nodes = list(configuration.loaded_config.get("available_nodes"))
         
-        self.vm = VirtualMachineMangement(self._proxmoxer)
+        self.vm = VirtualMachineManagement(self._proxmoxer)
         self.network = NetworkManagment(self._proxmoxer)
         self.task = TaskManagement(self._proxmoxer)
         self.qemu = QemuAgentManagement(self._proxmoxer)
         self.cluster = ClusterManagement(self._proxmoxer)
         self.storage = StorageManagement(self._proxmoxer)
+        self.user = UserManagement(self._proxmoxer)
         
         # NOTE inherit the _proxmoxer from QemuAgentManagement
-        self.software = SoftwareMangement()
+        self.software = SoftwareMangement(self._proxmoxer)
     
     @property
     def host(self) -> str:
@@ -92,12 +94,15 @@ class Proxmox:
         return self._proxmoxer.version.get(**kwargs)
     
 def get_connection() -> Proxmox:
-    host = configuration.loaded_config['host']
-    user = configuration.loaded_config['user']
-    token_name = configuration.loaded_config["token_name"]
-    token_value = configuration.loaded_config["token_value"]
-    verify_ssl = False
-    auth_type = Authtype.token
+    try: 
+        host = configuration.loaded_config['host']
+        user = configuration.loaded_config['user']
+        token_name = configuration.loaded_config["token_name"]
+        token_value = configuration.loaded_config["token_value"]
+        verify_ssl = False
+        auth_type = Authtype.token
+    except Exception as e:
+        raise SleepyDeveloperError(f"Missing required configuration key: {e}")
 
     return Proxmox(
         host=host,

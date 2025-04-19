@@ -1,7 +1,7 @@
 import logging
 import time
 from typing import Any, Dict, List
-
+from uuid import uuid4
 
 from proxmox.enums.qemu import QemuStatus
 from proxmox.enums.status import StatusCode
@@ -15,115 +15,6 @@ class QemuAgentManagement():
         self._proxmoxer  = connection
 
     """Manages QEMU agent operations."""
-    
-    def execute_shell_script(self, script_content: str, node: str, vmid: str):
-        """Execute a shell script on the VM using QEMU guest agent."""
-        _logger.info(f"Executing shell script on VM {vmid}")
-        script_path = "/tmp/proxmox_script.sh"
-    
-        try:
-            # Use the correct file-write endpoint with proper parameters
-            self._proxmoxer.nodes(node).qemu(vmid).agent("file-write").post(
-                content=script_content,
-                file=script_path,
-                encode=1
-            )
-        
-            # Make the script executable
-            chmod_res = self._proxmoxer.nodes(node).qemu(vmid).agent("exec").post(
-                command=["chmod", "+x", script_path]
-            )
-            
-            # Wait for chmod to complete
-            chmod_status = self._proxmoxer.nodes(node).qemu(vmid).agent("exec-status").get(
-                pid=chmod_res.get('pid')
-            )
-            
-            # Check if chmod was successful
-            if chmod_status.get('exitcode', 1) != 0:
-                raise Exception(f"Failed to make script executable: {chmod_status.get('err-data', '')}")
-        
-            # Execute the script with sudo
-            exec_res = self._proxmoxer.nodes(node).qemu(vmid).agent("exec").post(
-                command=["sudo", script_path]
-            )
-            
-            # Poll for completion
-            exec_result = None
-            while True:
-                exec_status = self._proxmoxer.nodes(node).qemu(vmid).agent("exec-status").get(
-                    pid=exec_res.get('pid')
-                )
-                
-                # Check if command has exited
-                if exec_status.get('exited', False):
-                    exec_result = exec_status
-                    break
-                
-                # Wait before polling again
-                time.sleep(1)
-        
-            # Parse the execution result
-            stdout = exec_result.get('out-data', '')
-            stderr = exec_result.get('err-data', '')
-            exit_code = exec_result.get('exitcode', 1)
-        
-            status = "success" if exit_code == 0 else "failed"
-        
-            results = {
-                "exec_result": exec_result,
-                "status": status,
-                "stdout": stdout,
-                "stderr": stderr,
-                "exit_code": exit_code
-            }
-        
-            # Clean up the script
-            cleanup_res = self._proxmoxer.nodes(node).qemu(vmid).agent("exec").post(
-                command=["rm", script_path]
-            )
-            
-            # Wait for cleanup to complete
-            self._proxmoxer.nodes(node).qemu(vmid).agent("exec-status").get(
-                pid=cleanup_res.get('pid')
-            )
-        
-            return results
-        
-        except Exception as e:
-            _logger.error(f"Failed to execute script on VM {vmid}: {str(e)}")
-            return {
-                "status": "failed",
-                "error": str(e)
-            }
-
-    def execute_command(self, node: str, vmid: str, command: str) -> Dict[str, Any]:
-        """
-        Execute a command on a VM using the QEMU agent.
-        """
-        response = self._proxmoxer.nodes(node).qemu(vmid).agent('exec').post(command=command)
-        return response
-    
-    def await_qemu_agent_ready(self, node: str, vm_id: str, timeout: int = 300, interval: int = 5) -> bool:
-        """
-        Waits for the QEMU agent to be ready.
-        """
-        elapsed_time = 0
-
-        while elapsed_time < timeout:
-            res = self.get_qemu_agent_status(node, vm_id)
-            
-            if res["status"] == QemuStatus.running:
-                return QemuStatus.running
-            
-            if res["status"] == QemuStatus.failure:
-                raise ValueError(res["exception"])
-
-            time.sleep(interval)
-            elapsed_time += interval
-
-        _logger.warning(f"Timeout waiting for QEMU agent on VM {vm_id}")
-        return QemuStatus.failure
 
     def get_qemu_agent_status(self, node: str, vm_id: str) -> Dict[str, Any]:
         """Get the status of the QEMU agent on a VM."""
@@ -170,7 +61,7 @@ class QemuAgentManagement():
         """Execute a shell script on the VM using QEMU guest agent"""
         _logger.info(f"Executing shell script on VM {vmid}")
         # Replace script name with a uuid, to make sure it is uniqe
-        script_path = "/tmp/proxmox_script.sh"
+        script_path = f"/tmp/proxmox_script_{uuid4()}.sh"
     
         try:
             # Use the correct file-write endpoint with proper parameters

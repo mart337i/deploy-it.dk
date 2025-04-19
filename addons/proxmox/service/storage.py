@@ -27,3 +27,12 @@ class StorageManagement():
 
     def get_storage(self, node, **kwargs):
         return self._proxmoxer.nodes(node).storage.get()
+    
+    def get_iso_storage(self, node):
+        storages = self._proxmoxer.nodes(node).storage.get()
+        iso_storages = [
+            storage for storage in storages 
+            if 'content' in storage and 'iso' in storage['content'].split(',')
+        ]
+        
+        return iso_storages

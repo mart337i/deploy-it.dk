@@ -5,6 +5,7 @@ from urllib.parse import quote
 from proxmox.enums.status import StatusCode
 from proxmox.utils.exceptions import InvalidConfiguration
 from proxmoxer.core import ResourceException
+from proxmox.service.task import TaskManagement
 
 from clicx.config import configuration
 from clicx.utils.security import _generate_password
@@ -14,7 +15,7 @@ _logger = logging.getLogger(__name__)
 #######################
 # MARK: VM Creation
 #######################
-class VirtualMachineMangement():
+class VirtualMachineManagement():
 
     def __init__(self, connection):
         self._proxmoxer  = connection
@@ -50,7 +51,7 @@ class VirtualMachineMangement():
             full=1
         )
 
-        tasks.append(self.blocking_status(node=node,task_id=clone_vm))
+        tasks.append(TaskManagement(self._proxmoxer).blocking_status(node=node,task_id=clone_vm))
         password = _generate_password(8)
         self._proxmoxer.nodes(node).qemu(new_vmid).config.put(
             ciuser = config.get("ciuser"),
@@ -60,7 +61,7 @@ class VirtualMachineMangement():
 
         
         task = self.resize_disk(node=node,vm_id=new_vmid,disk_name=disk,size=f'{disk_size}G')
-        self.blocking_status(node=node,task_id=task)
+        TaskManagement(self._proxmoxer).blocking_status(node=node,task_id=task)
 
         self._proxmoxer.nodes(node).qemu(new_vmid).status.start.post()
 
@@ -193,24 +194,6 @@ class VirtualMachineMangement():
             ssh_content = content.read()
         try:
             response = self._proxmoxer.nodes(node).qemu(vmid).agent('file-write').post(content=ssh_content,file=f"/home/{username}/.ssh/authorized_keys",node=node,vmid=vmid)
-            return {
-                'status_code': StatusCode.sucess,
-                'msg': response
-            }
-        except ResourceException as e:
-            return {
-                'status_code': StatusCode.failure,
-                'error_msg': str(e)
-            }
-        except Exception as e:
-            return {
-                'status_code': StatusCode.failure,
-                'error_msg': str(e)
-            }
-        
-    def get_exec_status(self,node,vmid,pid):
-        try:
-            response = self._proxmoxer.nodes(node).qemu(vmid).agent('exec-status').get(pid=pid)
             return {
                 'status_code': StatusCode.sucess,
                 'msg': response

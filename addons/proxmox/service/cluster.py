@@ -20,11 +20,3 @@ class ClusterManagement():
         """List all resources."""
         return self._proxmoxer.cluster.resources.get(**kwargs)
     
-    def get_iso_storage(self, node):
-        storages = self._proxmoxer.nodes(node).storage.get()
-        iso_storages = [
-            storage for storage in storages 
-            if 'content' in storage and 'iso' in storage['content'].split(',')
-        ]
-        
-        return iso_storages
