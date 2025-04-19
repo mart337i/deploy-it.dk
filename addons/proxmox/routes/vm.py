@@ -11,10 +11,10 @@ from proxmox.schema.vm import CloneVM, VirtualMachine
 from clicx.config import configuration
 from proxmox.middleware.auth import pass_through_authentication
 
-from proxmox import __version__,__name__
+from proxmox import API_VERSION,NAME
 
 router = APIRouter(
-    prefix=f"/{__name__}/{__version__}/vm",
+    prefix=f"/{NAME}/{API_VERSION}/vm",
     tags=["Virtual machine control"],
 )
 

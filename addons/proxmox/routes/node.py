@@ -7,11 +7,11 @@ from proxmox.service import proxmox
 from proxmox.service.proxmox import Proxmox
 from clicx.config import configuration
 
-from proxmox import __version__,__name__
+from proxmox import API_VERSION,NAME
 
 
 router = APIRouter(
-    prefix=f"/{__name__}/{__version__}/node",
+    prefix=f"/{NAME}/{API_VERSION}/node",
     tags=["Proxmox nodes"],
 )
 
