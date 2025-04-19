@@ -1,12 +1,10 @@
-
 from typing import Any
-
 from fastapi import Depends
 from fastapi.routing import APIRouter
-from proxmox.models.proxmox import proxmox
 from proxmox.models.auth import TokenAuth
 from proxmox.middleware.auth import pass_through_authentication
-
+from proxmox.service import proxmox
+from proxmox.service.proxmox import Proxmox
 from clicx.config import configuration
 
 router = APIRouter(
@@ -16,56 +14,36 @@ router = APIRouter(
 
 dependency = [Depends(dependency=pass_through_authentication)]
 
-def pve_conn(
-    host: str = configuration.loaded_config['host'],
-    user: str = configuration.loaded_config['user'],
-    token_name: str = configuration.loaded_config["token_name"],
-    token_value: str = configuration.loaded_config["token_value"],
-    verify_ssl: bool = False,
-    auth_type: str = "token",
-):
-    return proxmox(
-        **vars(TokenAuth(
-            host=host,
-            user=user,
-            token_name=token_name,
-            token_value=token_value,
-            verify_ssl=verify_ssl,
-            auth_type=auth_type,
-        ))
-    )
+def get_pve_conn():
+    return proxmox.get_connection()
 
-
-@router.get("/")
-def Proxmox_Root() -> Any:
+@router.get("/", dependencies=dependency)
+def Proxmox_Root(pve: Proxmox = Depends(get_pve_conn)) -> Any:
     return {
-        "get_version" : f"{pve_conn().get_version()}",
+        "get_version": f"{pve.get_version()}",
     }
 
-@router.get("/list_all_nodes")
-def list_all_nodes() -> Any:
+@router.get("/list_all_nodes", dependencies=dependency)
+def list_all_nodes(pve: Proxmox = Depends(get_pve_conn)) -> Any:
     nodes = []
-
-    temp_connection = pve_conn()
-    for node in temp_connection.list_nodes():
+    for node in pve.cluster.list_nodes():
         node_name = node.get("node")
         nodes.append(node_name)
-        
+       
     return nodes
 
-@router.get("/list_nodes")
-def list_nodes() -> Any:
-    return  pve_conn().list_nodes()
-    
-
-@router.get("/get_node_status")
-def get_node_status(node: str) -> Any:
+@router.get("/list_nodes", dependencies=dependency)
+def list_nodes(pve: Proxmox = Depends(get_pve_conn)) -> Any:
+    return pve.cluster.list_nodes()
+   
+@router.get("/get_node_status", dependencies=dependency)
+def get_node_status(node: str, pve: Proxmox = Depends(get_pve_conn)) -> Any:
     return {
-        "node_status": f"{pve_conn().get_node_status(node=node)}",
+        "node_status": f"{pve.cluster.get_node_status(node=node)}",
     }
 
-@router.get("/list_resources")
-def list_resources() -> Any:
+@router.get("/list_resources", dependencies=dependency)
+def list_resources(pve: Proxmox = Depends(get_pve_conn)) -> Any:
     return {
-        "resources": f"{pve_conn().list_resources()}",
+        "resources": f"{pve.cluster.list_resources()}",
     }
