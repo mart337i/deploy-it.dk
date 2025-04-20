@@ -28,7 +28,6 @@ class TaskManagement():
             time.sleep(polling_interval)
         return data
 
-    @staticmethod
     def get_task_status(self, node: str, upid: str, **kwargs) -> Dict[str, Any]:
         """
         Get the status of a task.
