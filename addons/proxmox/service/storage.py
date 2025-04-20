@@ -5,6 +5,10 @@ class StorageManagement():
         self._proxmoxer  = connection
 
 
+import logging
+
+_logger = logging.getLogger(__name__)
+
     def get_iso_files(self, node):
         all_isos = []
         
@@ -21,10 +25,9 @@ class StorageManagement():
                 
                 all_isos.extend(isos)
             except Exception as e:
-                print(f"Warning: Could not get ISOs from storage '{storage_id}': {str(e)}")
+                _logger.warning(f"Could not get ISOs from storage '{storage_id}': {str(e)}")
         
         return all_isos
-
     def get_storage(self, node, **kwargs):
         return self._proxmoxer.nodes(node).storage.get()
     
