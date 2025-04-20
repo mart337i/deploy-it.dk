@@ -96,6 +96,34 @@ poetry install
 pip install -e .
 
 ```
+
+
+## Set up a database
+```sh
+sudo apt install postgresql postgresql-client
+```
+
+```sh
+ sudo -u postgres createuser -d -R -S $USER
+ createdb $USER
+```
+
+To define model that the ORM will pick up do the following.
+```py
+from sqlalchemy import Column, Integer, String
+
+# Import the database model
+from clicx.database import models
+
+class User(models.Model):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True)
+    username = Column(String, unique=True)
+    password = Column(String)
+
+```
+
 ## Usage
 
 - All .env files will be loaded if they are loacted in the addons folder
