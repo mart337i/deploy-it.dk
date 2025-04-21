@@ -25,15 +25,24 @@ def get_pve_conn() -> Proxmox:
 
 @router.get(path="/get_vm_ids", dependencies=dependency)
 def get_vm_ids(node: str, pve: Proxmox = Depends(get_pve_conn)) -> Any:
-    return pve.vm.get_vm_ids(node=node)
+    try:
+        return pve.vm.get_vm_ids(node=node)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get VM IDs: {str(e)}")
 
 @router.get(path="/get_all_configurations", dependencies=dependency)
 def get_all_configurations(pve: Proxmox = Depends(get_pve_conn)) -> Any:
-    return pve.vm.get_all_configurations()
+    try:
+        return pve.vm.get_all_configurations()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get configurations: {str(e)}")
 
 @router.post(path="/install_docker_engine", dependencies=dependency)
 def install_docker_engine(node: str, vmid: int, pve: Proxmox = Depends(get_pve_conn)):
-    return pve.software.install_docker_engine(node, vmid)
+    try:
+        return pve.software.install_docker_engine(node, vmid)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to install Docker engine: {str(e)}")
 
 @router.post(path="/pull_docker_image", dependencies=dependency)
 def pull_docker_image(
@@ -46,15 +55,18 @@ def pull_docker_image(
     env_vars: str = "",
     pve: Proxmox = Depends(get_pve_conn)
 ):
-    return pve.software.pull_docker_image(
-        node=node,
-        vmid=vmid,
-        image_name=image_name,
-        container_name=container_name,
-        port_mapping=port_mapping,
-        volume_mapping=volume_mapping,
-        env_vars=env_vars
-    )
+    try:
+        return pve.software.pull_docker_image(
+            node=node,
+            vmid=vmid,
+            image_name=image_name,
+            container_name=container_name,
+            port_mapping=port_mapping,
+            volume_mapping=volume_mapping,
+            env_vars=env_vars
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to pull Docker image: {str(e)}")
 
 @router.post(path="/stop_docker_image", dependencies=dependency)
 def stop_docker_image(
@@ -64,7 +76,10 @@ def stop_docker_image(
     remove_container: bool,
     pve: Proxmox = Depends(get_pve_conn)
 ):
-    return pve.software.stop_docker_image(node, vmid, container_name, remove_container)
+    try:
+        return pve.software.stop_docker_image(node, vmid, container_name, remove_container)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to stop Docker container: {str(e)}")
 
 @router.post(path="/create_proxy_conf", dependencies=dependency)
 def create_proxy_conf(
@@ -74,13 +89,19 @@ def create_proxy_conf(
     vmid: int = 3000,
     pve: Proxmox = Depends(get_pve_conn)
 ):
-    return pve.software.create_proxy_conf(node, vmid, hostname, ip)
+    try:
+        return pve.software.create_proxy_conf(node, vmid, hostname, ip)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create proxy configuration: {str(e)}")
 
 @router.get(path="/get_next_available_vm_id", dependencies=dependency)
 def get_next_available_vm_id(pve: Proxmox = Depends(get_pve_conn)) -> Any:
-    return {
-        "vmid": int(pve.vm.get_next_available_vm_id())
-    }
+    try:
+        return {
+            "vmid": int(pve.vm.get_next_available_vm_id())
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get next available VM ID: {str(e)}")
 
 @router.post(path="/configure_vm", dependencies=dependency)
 def configure_vm(
@@ -89,7 +110,10 @@ def configure_vm(
     config_name: str,
     pve: Proxmox = Depends(get_pve_conn)
 ):
-    return pve.software.configure_vm(node=node, vmid=vmid, script_name=config_name)
+    try:
+        return pve.software.configure_vm(node=node, vmid=vmid, script_name=config_name)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to configure VM: {str(e)}")
 
 @router.post(path="/configure_vm_custom", dependencies=dependency)
 def configure_vm_custom(
@@ -98,7 +122,10 @@ def configure_vm_custom(
     config_file: UploadFile = File(...),
     pve: Proxmox = Depends(get_pve_conn)
 ):
-    return pve.software.configure_vm_custom(node=node, vmid=vmid, script_file=config_file)
+    try:
+        return pve.software.configure_vm_custom(node=node, vmid=vmid, script_file=config_file)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to configure VM with custom file: {str(e)}")
 
 @router.post(path="/clone-vm", dependencies=dependency)
 def clone_vm(
@@ -106,12 +133,14 @@ def clone_vm(
     vm_config: CloneVM,
     pve: Proxmox = Depends(get_pve_conn)
 ):
-    if not validators.hostname(vm_config.name):
-        raise HTTPException(422, "Invalid Hostname")
-    try: 
+    try:
+        if not validators.hostname(vm_config.name):
+            raise HTTPException(422, "Invalid Hostname")
         return pve.vm.clone_vm(node=node, config=vm_config.model_dump())
+    except HTTPException as he:
+        raise he
     except Exception as e:
-        raise HTTPException(500, str(e))
+        raise HTTPException(status_code=500, detail=f"Failed to clone VM: {str(e)}")
     
 @router.post(path="/create-vm", dependencies=dependency)
 def create_vm(
@@ -124,7 +153,7 @@ def create_vm(
         vm = pve.vm.create_vm(node=node, config=config)
         return vm
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Failed to create VM: {str(e)}")
 
 @router.get(path="/get_vm_ip", dependencies=dependency)
 def get_vm_ip(
@@ -132,10 +161,15 @@ def get_vm_ip(
     vmid: int,
     pve: Proxmox = Depends(get_pve_conn)
 ):
-    response = pve.network.get_vm_ip(node=node, vmid=vmid)
-    if response is None:
-        raise HTTPException(500, detail="Could not receive IP, see API log for more info")
-    return response
+    try:
+        response = pve.network.get_vm_ip(node=node, vmid=vmid)
+        if response is None:
+            raise HTTPException(500, detail="Could not receive IP, see API log for more info")
+        return response
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get VM IP: {str(e)}")
 
 @router.get(path="/ping_qemu", dependencies=dependency)
 def ping_qemu(
@@ -143,10 +177,15 @@ def ping_qemu(
     vmid: int,
     pve: Proxmox = Depends(get_pve_conn)
 ):
-    response = pve.qemu.ping_qemu(node=node, vmid=vmid)
-    if response is None:
-        raise HTTPException(500, detail="Failed to ping QEMU guest agent")
-    return response
+    try:
+        response = pve.qemu.ping_qemu(node=node, vmid=vmid)
+        if response is None:
+            raise HTTPException(500, detail="Failed to ping QEMU guest agent")
+        return response
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to ping QEMU agent: {str(e)}")
 
 @router.get(path="/get_qemu_agent_status", dependencies=dependency)
 def get_qemu_agent_status(
@@ -154,7 +193,10 @@ def get_qemu_agent_status(
     vmid: int,
     pve: Proxmox = Depends(get_pve_conn)
 ):
-    return pve.qemu.get_qemu_agent_status(node=node, vm_id=vmid)
+    try:
+        return pve.qemu.get_qemu_agent_status(node=node, vm_id=vmid)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get QEMU agent status: {str(e)}")
 
 @router.put("/resize_disk", dependencies=dependency)
 def resize_disk(
@@ -164,7 +206,10 @@ def resize_disk(
     new_size: str,
     pve: Proxmox = Depends(get_pve_conn)
 ):
-    return pve.vm.resize_disk(node=node, vm_id=vm_id, disk=disk, new_size=new_size)
+    try:
+        return pve.vm.resize_disk(node=node, vm_id=vm_id, disk_name=disk, size=f'+{new_size}G')
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to resize disk: {str(e)}")
 
 @router.get("/get_task_status", dependencies=dependency)
 def get_task_status(
@@ -172,14 +217,20 @@ def get_task_status(
     upid: str,
     pve: Proxmox = Depends(get_pve_conn)
 ):
-    return pve.task.get_task_status(node=node, upid=upid)
+    try:
+        return pve.task.get_task_status(node=node, upid=upid)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get task status: {str(e)}")
 
 @router.get("/list_tasks", dependencies=dependency)
 def list_tasks(
     node: str,
     pve: Proxmox = Depends(get_pve_conn)
 ):
-    return pve.task.list_tasks(node=node)
+    try:
+        return pve.task.list_tasks(node=node)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list tasks: {str(e)}")
 
 @router.get("/get_task_logs", dependencies=dependency)
 def get_task_logs(
@@ -187,18 +238,27 @@ def get_task_logs(
     upid: str,
     pve: Proxmox = Depends(get_pve_conn)
 ):
-    return pve.task.get_task_logs(node=node, upid=upid)
+    try:
+        return pve.task.get_task_logs(node=node, upid=upid)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get task logs: {str(e)}")
 
 @router.get("/list_vms", dependencies=dependency)
 def list_vms(
     node: str,
     pve: Proxmox = Depends(get_pve_conn)
 ) -> Any:
-    return pve.vm.list_vms(node=node)
+    try:
+        return pve.vm.list_vms(node=node)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list VMs: {str(e)}")
     
 @router.get("/list_all_vm_ids", dependencies=dependency)
 def list_all_vm_ids(pve: Proxmox = Depends(get_pve_conn)) -> Any:
-    return pve.vm.list_all_vm_ids()
+    try:
+        return pve.vm.list_all_vm_ids()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list all VM IDs: {str(e)}")
 
 @router.get("/get_vm_status", dependencies=dependency)
 def get_vm_status(
@@ -206,7 +266,10 @@ def get_vm_status(
     vmid: str,
     pve: Proxmox = Depends(get_pve_conn)
 ) -> Any:
-    return pve.vm.get_vm_status(node=node, vmid=vmid)
+    try:
+        return pve.vm.get_vm_status(node=node, vmid=vmid)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get VM status: {str(e)}")
 
 @router.get("/get_vm_config", dependencies=dependency)
 def get_vm_config(
@@ -214,7 +277,10 @@ def get_vm_config(
     vmid: str,
     pve: Proxmox = Depends(get_pve_conn)
 ) -> Any:
-    return pve.vm.get_vm_config(node=node, vmid=vmid)
+    try:
+        return pve.vm.get_vm_config(node=node, vmid=vmid)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get VM configuration: {str(e)}")
 
 @router.delete("/delete_vm", dependencies=dependency)
 def delete_vm(
@@ -222,7 +288,10 @@ def delete_vm(
     vmid: str,
     pve: Proxmox = Depends(get_pve_conn)
 ) -> Any:
-    return pve.vm.delete_vm(node=node, vmid=vmid)
+    try:
+        return pve.vm.delete_vm(node=node, vmid=vmid)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete VM: {str(e)}")
 
 @router.post("/start_vm", dependencies=dependency)
 def start_vm(
@@ -230,7 +299,10 @@ def start_vm(
     vmid: str,
     pve: Proxmox = Depends(get_pve_conn)
 ) -> Any:
-    return pve.vm.start_vm(node=node, vmid=vmid)
+    try:
+        return pve.vm.start_vm(node=node, vmid=vmid)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start VM: {str(e)}")
 
 @router.post("/stop_vm", dependencies=dependency)
 def stop_vm(
@@ -238,7 +310,10 @@ def stop_vm(
     vmid: str,
     pve: Proxmox = Depends(get_pve_conn)
 ) -> Any:
-    return pve.vm.stop_vm(node=node, vmid=vmid)
+    try:
+        return pve.vm.stop_vm(node=node, vmid=vmid)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to stop VM: {str(e)}")
 
 @router.post("/shutdown_vm", dependencies=dependency)
 def shutdown_vm(
@@ -246,7 +321,10 @@ def shutdown_vm(
     vmid: str,
     pve: Proxmox = Depends(get_pve_conn)
 ) -> Any:
-    return pve.vm.shutdown_vm(node=node, vmid=vmid)
+    try:
+        return pve.vm.shutdown_vm(node=node, vmid=vmid)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to shutdown VM: {str(e)}")
 
 @router.post("/reset_vm", dependencies=dependency)
 def reset_vm(
@@ -254,7 +332,10 @@ def reset_vm(
     vmid: str,
     pve: Proxmox = Depends(get_pve_conn)
 ) -> Any:
-    return pve.vm.reset_vm(node=node, vmid=vmid)
+    try:
+        return pve.vm.reset_vm(node=node, vmid=vmid)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to reset VM: {str(e)}")
 
 @router.post("/reboot_vm", dependencies=dependency)
 def reboot_vm(
@@ -262,7 +343,10 @@ def reboot_vm(
     vmid: str,
     pve: Proxmox = Depends(get_pve_conn)
 ) -> Any:
-    return pve.vm.reboot_vm(node=node, vmid=vmid)
+    try:
+        return pve.vm.reboot_vm(node=node, vmid=vmid)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to reboot VM: {str(e)}")
 
 @router.post("/suspend_vm", dependencies=dependency)
 def suspend_vm(
@@ -270,7 +354,10 @@ def suspend_vm(
     vmid: str,
     pve: Proxmox = Depends(get_pve_conn)
 ) -> Any:
-    return pve.vm.suspend_vm(node=node, vmid=vmid)
+    try:
+        return pve.vm.suspend_vm(node=node, vmid=vmid)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to suspend VM: {str(e)}")
 
 @router.post("/resume_vm", dependencies=dependency)
 def resume_vm(
@@ -278,4 +365,7 @@ def resume_vm(
     vmid: str,
     pve: Proxmox = Depends(get_pve_conn)
 ) -> Any:
-    return pve.vm.resume_vm(node=node, vmid=vmid)
+    try:
+        return pve.vm.resume_vm(node=node, vmid=vmid)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to resume VM: {str(e)}")

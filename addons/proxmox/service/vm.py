@@ -24,7 +24,6 @@ class VirtualMachineManagement():
         tasks = []
         msg = []
         new_vmid = self.get_next_available_vm_id()
-        task_management = TaskManagement(self._proxmoxer)
 
         available_configuration = configuration.loaded_config.get('vm_configurations')
         chosen_vm_config = available_configuration.get(str(config.get('vmid')))
@@ -37,9 +36,8 @@ class VirtualMachineManagement():
         disk = chosen_vm_config['hardware'].get("disk")
         ssh_key = config.get("sshkeys")
 
-        if not disk and not disk_size:
-            raise InvalidConfiguration("Chould not determine disk and disk size")
-
+        if not disk or not disk_size:
+            raise InvalidConfiguration("Chould not determine disk or disk size")
 
         if not ssh_key: 
             raise ValueError("No ssh key found, Unable to create Vm without it.")
@@ -52,22 +50,16 @@ class VirtualMachineManagement():
             full=1
         )
 
-        tasks.append(task_management.blocking_status(node=node,task_id=clone_vm))
         password = _generate_password(8)
+
         self._proxmoxer.nodes(node).qemu(new_vmid).config.put(
             ciuser = config.get("ciuser"),
             cipassword = password,
             sshkeys = ssh,
         )
 
-        
-        task = self.resize_disk(node=node,vm_id=new_vmid,disk_name=disk,size=f'{disk_size}G')
-        task_management.blocking_status(node=node,task_id=task)
-
-        self._proxmoxer.nodes(node).qemu(new_vmid).status.start.post()
-
         return {
-            "tasks" : tasks,
+            "tasks" : [clone_vm],
             "msg":msg,
             "vm" : {
                 "vmid": new_vmid,
@@ -89,6 +81,9 @@ class VirtualMachineManagement():
 #######################
 
     def resize_disk(self, node, vm_id, disk_name, size):
+        """
+        Note: This endpoint is a bitch to work with.
+        """
         task = self._proxmoxer.nodes(node).qemu(vm_id).resize.put(
             disk=disk_name,
             size=size
