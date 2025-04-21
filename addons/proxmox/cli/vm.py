@@ -11,7 +11,8 @@ import typer
 from typing_extensions import Annotated
 
 # Local imports
-from proxmox.models.proxmox import proxmox
+from proxmox.service import proxmox
+from proxmox.service.proxmox import Proxmox
 from proxmox.models.auth import TokenAuth
 
 from clicx.config import configuration
@@ -20,25 +21,8 @@ console = Console()
 app = typer.Typer(help="Virtual machine management")
 
 
-def pve_conn(
-    host: str = configuration.loaded_config['host'],
-    user: str = configuration.loaded_config['user'],
-    token_name: str = configuration.loaded_config["token_name"],
-    token_value: str = configuration.loaded_config["token_value"],
-    verify_ssl: bool = False,
-    auth_type: str = "token",
-):
-    return proxmox(
-        **vars(TokenAuth(
-            host=host,
-            user=user,
-            token_name=token_name,
-            token_value=token_value,
-            verify_ssl=verify_ssl,
-            auth_type=auth_type,
-        ))
-    )
-
+def get_pve_conn() -> Proxmox:
+    return proxmox.get_connection()
 
 @app.command()
 def list_vms(
@@ -46,7 +30,7 @@ def list_vms(
     detailed: bool = typer.Option(False, "--detailed", "-d", help="Show detailed information"),
 ):
     """List all VMs on a node."""
-    vms = pve_conn().list_vms(node=node)
+    vms = get_pve_conn().vm.list_vms(node=node)
     
     table = Table(title=f"VMs on node {node}")
     
@@ -88,7 +72,7 @@ def start(
     vmid: str = typer.Option(..., "--vmid", "-v", help="VM ID"),
 ):
     """Start a VM."""
-    result = pve_conn().start_vm(node=node, vmid=vmid)
+    result = get_pve_conn().vm.start_vm(node=node, vmid=vmid)
     console.print(f"[bold green]VM {vmid} start initiated. Task ID: {result}[/bold green]")
 
 
@@ -98,7 +82,7 @@ def stop(
     vmid: str = typer.Option(..., "--vmid", "-v", help="VM ID"),
 ):
     """Stop a VM."""
-    result = pve_conn().stop_vm(node=node, vmid=vmid)
+    result = get_pve_conn().vm.stop_vm(node=node, vmid=vmid)
     console.print(f"[bold green]VM {vmid} stop initiated. Task ID: {result}[/bold green]")
 
 
@@ -108,7 +92,7 @@ def shutdown(
     vmid: str = typer.Option(..., "--vmid", "-v", help="VM ID"),
 ):
     """Shutdown a VM (graceful)."""
-    result = pve_conn().shutdown_vm(node=node, vmid=vmid)
+    result = get_pve_conn().vm.shutdown_vm(node=node, vmid=vmid)
     console.print(f"[bold green]VM {vmid} shutdown initiated. Task ID: {result}[/bold green]")
 
 
@@ -118,7 +102,7 @@ def reset(
     vmid: str = typer.Option(..., "--vmid", "-v", help="VM ID"),
 ):
     """Reset a VM."""
-    result = pve_conn().reset_vm(node=node, vmid=vmid)
+    result = get_pve_conn().vm.reset_vm(node=node, vmid=vmid)
     console.print(f"[bold green]VM {vmid} reset initiated. Task ID: {result}[/bold green]")
 
 
@@ -128,7 +112,7 @@ def reboot(
     vmid: str = typer.Option(..., "--vmid", "-v", help="VM ID"),
 ):
     """Reboot a VM (graceful)."""
-    result = pve_conn().reboot_vm(node=node, vmid=vmid)
+    result = get_pve_conn().vm.reboot_vm(node=node, vmid=vmid)
     console.print(f"[bold green]VM {vmid} reboot initiated. Task ID: {result}[/bold green]")
 
 
@@ -138,7 +122,7 @@ def status(
     vmid: str = typer.Option(..., "--vmid", "-v", help="VM ID"),
 ):
     """Get VM status."""
-    result = pve_conn().get_vm_status(node=node, vmid=vmid)
+    result = get_pve_conn().vm.get_vm_status(node=node, vmid=vmid)
     
     table = Table(title=f"Status of VM {vmid}")
     
@@ -164,201 +148,5 @@ def delete(
             console.print("[yellow]Operation cancelled.[/yellow]")
             return
     
-    result = pve_conn().delete_vm(node=node, vmid=vmid)
+    result = get_pve_conn().vm.delete_vm(node=node, vmid=vmid)
     console.print(f"[bold green]VM {vmid} deletion initiated. Task ID: {result}[/bold green]")
-
-@app.command()
-def get_ip(
-    node: str = typer.Option(..., "--node", "-n", help="Node name"),
-    vmid: str = typer.Option(..., "--vmid", "-v", help="VM ID"),
-):
-    """Get VM IP address."""
-    result = pve_conn().get_vm_ipv4(node=node, vmid=vmid)
-    
-    if result:
-        console.print(f"[bold green]VM {vmid} IP: {result.get('ipv4', 'Not available')}[/bold green]")
-    else:
-        console.print(f"[bold yellow]Could not retrieve IP for VM {vmid}[/bold yellow]")
-
-
-@app.command()
-def clone(
-    node: str = typer.Option(..., "--node", "-n", help="Node name"),
-    vmid: str = typer.Option(..., "--vmid", "-v", help="Source VM ID"),
-    newid: str = typer.Option(..., "--newid", help="New VM ID"),
-    name: str = typer.Option(None, "--name", help="New VM name"),
-    full: bool = typer.Option(False, "--full", help="Create a full clone"),
-):
-    """Clone a VM."""
-    params = {}
-    if name:
-        params['name'] = name
-    if full:
-        params['full'] = 1
-    
-    result = pve_conn().clone_vm(node=node, vmid=vmid, newid=newid, **params)
-    console.print(f"[bold green]VM {vmid} clone initiated. New VM ID: {newid}. Task ID: {result}[/bold green]")
-
-
-@app.command()
-def resize_disk(
-    node: str = typer.Option(..., "--node", "-n", help="Node name"),
-    vmid: str = typer.Option(..., "--vmid", "-v", help="VM ID"),
-    disk: str = typer.Option("scsi0", "--disk", help="Disk to resize"),
-    size: str = typer.Option(..., "--size", help="New disk size (e.g., '20G')"),
-):
-    """Resize a VM disk."""
-    result = pve_conn().resize_vm_disk(node=node, vm_id=vmid, disk=disk, new_size=size)
-    console.print(f"[bold green]VM {vmid} disk resize initiated. Task ID: {result.get('vm', {}).get('taskID', '')}[/bold green]")
-
-@app.command()
-def task_status(
-    node: str = typer.Option(..., "--node", "-n", help="Node name"),
-    upid: str = typer.Option(..., "--upid", "-u", help="Task ID"),
-):
-    """Get task status."""
-    status = pve_conn().get_task_status(node=node, upid=upid)
-    
-    table = Table(title=f"Task {upid} Status")
-    
-    table.add_column("Property")
-    table.add_column("Value")
-    
-    for key, value in status.items():
-        table.add_row(key, str(value))
-    
-    console.print(table)
-
-
-@app.command()
-def task_logs(
-    node: str = typer.Option(..., "--node", "-n", help="Node name"),
-    upid: str = typer.Option(..., "--upid", "-u", help="Task ID"),
-):
-    """Get task logs."""
-    logs = pve_conn().get_task_logs(node=node, upid=upid)
-    
-    for log in logs:
-        console.print(log.get('t', ''))
-
-
-@app.command()
-def suspend(
-    node: str = typer.Option(..., "--node", "-n", help="Node name"),
-    vmid: str = typer.Option(..., "--vmid", "-v", help="VM ID"),
-):
-    """Suspend a VM."""
-    result = pve_conn().suspend_vm(node=node, vmid=vmid)
-    console.print(f"[bold green]VM {vmid} suspend initiated. Task ID: {result}[/bold green]")
-
-
-@app.command()
-def resume(
-    node: str = typer.Option(..., "--node", "-n", help="Node name"),
-    vmid: str = typer.Option(..., "--vmid", "-v", help="VM ID"),
-):
-    """Resume a suspended VM."""
-    result = pve_conn().resume_vm(node=node, vmid=vmid)
-    console.print(f"[bold green]VM {vmid} resume initiated. Task ID: {result}[/bold green]")
-
-
-@app.command()
-def config(
-    node: str = typer.Option(..., "--node", "-n", help="Node name"),
-    vmid: str = typer.Option(..., "--vmid", "-v", help="VM ID"),
-):
-    """Get VM configuration."""
-    config = pve_conn().get_vm_config(node=node, vmid=vmid)
-    
-    table = Table(title=f"Configuration of VM {vmid}")
-    
-    table.add_column("Property")
-    table.add_column("Value")
-    
-    for key, value in config.items():
-        table.add_row(key, str(value))
-    
-    console.print(table)
-
-@app.command()
-def get_next_vmid():
-    """Get next available VM ID."""
-    next_id = pve_conn().get_next_available_vm_id()
-    console.print(f"[bold green]Next available VM ID: {next_id}[/bold green]")
-
-
-@app.command()
-def execute_vm_command(
-    node: str = typer.Option(..., "--node", "-n", help="Node name"),
-    vmid: str = typer.Option(..., "--vmid", "-v", help="VM ID"),
-    command: str = typer.Option(..., "--command", "-c", help="Command to execute"),
-):
-    """Execute a command on a VM using QEMU agent."""
-    result = pve_conn().execute_command(node=node, vmid=vmid, command=command)
-    console.print(f"[bold blue]Command execution result:[/bold blue]")
-    console.print(result)
-
-
-@app.command()
-def node_network(
-    node: str = typer.Option(..., "--node", "-n", help="Node name"),
-):
-    """Get network configuration for a node."""
-    network = pve_conn().get_node_network_config(node=node)
-    
-    table = Table(title=f"Network configuration for node {node}")
-    table.add_column("Interface")
-    table.add_column("Type")
-    table.add_column("Address")
-    table.add_column("Active")
-    
-    for iface in network:
-        table.add_row(
-            iface.get('iface', ''),
-            iface.get('type', ''),
-            iface.get('address', ''),
-            str(iface.get('active', False))
-        )
-    
-    console.print(table)
-
-
-@app.command()
-def hostname_map():
-    """Map hostnames to IP addresses for all nodes."""
-    mapping = pve_conn().map_hostname_and_ip()
-    
-    table = Table(title="Node Hostname to IP Mapping")
-    table.add_column("Hostname")
-    table.add_column("IP Address")
-    
-    for item in mapping:
-        table.add_row(
-            item.get('hostname', ''),
-            item.get('ip_address', '')
-        )
-    
-    console.print(table)
-
-
-@app.command()
-def add_ssh(
-    node,
-    vmid,
-    username,
-    key,
-):
-    res = pve_conn().add_ssh(node=node,vmid=vmid,username=username,key=key)
-    rich.print(res)
-    return res
-
-@app.command()
-def get_exec_status(
-    node,
-    vmid,
-    pid
-):
-    res = pve_conn().get_exec_status(node,vmid,pid)
-    rich.print(res)
-    return res
-
