@@ -24,6 +24,7 @@ class VirtualMachineManagement():
         tasks = []
         msg = []
         new_vmid = self.get_next_available_vm_id()
+        task_management = TaskManagement(self._proxmoxer)
 
         available_configuration = configuration.loaded_config.get('vm_configurations')
         chosen_vm_config = available_configuration.get(str(config.get('vmid')))
@@ -51,7 +52,7 @@ class VirtualMachineManagement():
             full=1
         )
 
-        tasks.append(TaskManagement(self._proxmoxer).blocking_status(node=node,task_id=clone_vm))
+        tasks.append(task_management.blocking_status(node=node,task_id=clone_vm))
         password = _generate_password(8)
         self._proxmoxer.nodes(node).qemu(new_vmid).config.put(
             ciuser = config.get("ciuser"),
@@ -61,7 +62,7 @@ class VirtualMachineManagement():
 
         
         task = self.resize_disk(node=node,vm_id=new_vmid,disk_name=disk,size=f'{disk_size}G')
-        TaskManagement(self._proxmoxer).blocking_status(node=node,task_id=task)
+        task_management.blocking_status(node=node,task_id=task)
 
         self._proxmoxer.nodes(node).qemu(new_vmid).status.start.post()
 
