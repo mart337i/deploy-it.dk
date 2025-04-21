@@ -1,13 +1,12 @@
 
+import logging
+
+_logger = logging.getLogger(__name__)
+
 class StorageManagement():
 
     def __init__(self, connection):
         self._proxmoxer  = connection
-
-
-import logging
-
-_logger = logging.getLogger(__name__)
 
     def get_iso_files(self, node):
         all_isos = []

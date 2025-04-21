@@ -36,11 +36,7 @@ def install_docker_engine(node: str, vmid: int, pve: Proxmox = Depends(get_pve_c
     return pve.software.install_docker_engine(node, vmid)
 
 @router.post(path="/pull_docker_image", dependencies=dependency)
-def pull_docker_image(node: str, vmid: int, image_name: str, pve: Proxmox = Depends(get_pve_conn)):
-    return pve.software.pull_docker_image(node, vmid, image_name)
-
-@router.post(path="/start_docker_image", dependencies=dependency)
-def start_docker_image(
+def pull_docker_image(
     node: str, 
     vmid: int, 
     image_name: str, 
@@ -50,7 +46,7 @@ def start_docker_image(
     env_vars: str = "",
     pve: Proxmox = Depends(get_pve_conn)
 ):
-    return pve.software.start_docker_image(
+    return pve.software.pull_docker_image(
         node=node,
         vmid=vmid,
         image_name=image_name,

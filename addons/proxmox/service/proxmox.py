@@ -76,7 +76,7 @@ class Proxmox:
         self.storage = StorageManagement(self._proxmoxer)
         self.user = UserManagement(self._proxmoxer)
         
-        # NOTE inherit the _proxmoxer from QemuAgentManagement
+        # NOTE inherits from QemuAgentManagement
         self.software = SoftwareMangement(self._proxmoxer)
     
     @property
