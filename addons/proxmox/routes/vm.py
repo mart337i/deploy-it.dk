@@ -109,7 +109,7 @@ def clone_vm(
     if not validators.hostname(vm_config.name):
         raise HTTPException(422, "Invalid Hostname")
     try: 
-        return pve.clone_vm(node=node, config=vm_config.model_dump())
+        return pve.vm.clone_vm(node=node, config=vm_config.model_dump())
     except Exception as e:
         raise HTTPException(500, str(e))
     
