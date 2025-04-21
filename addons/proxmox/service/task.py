@@ -13,7 +13,6 @@ class TaskManagement():
 # MARK: Task Management
 #######################
 
-    @staticmethod
     def blocking_status(self,node, task_id, timeout=300, polling_interval=1):
         start_time: float = time.monotonic()
         data = {"status": ""}
