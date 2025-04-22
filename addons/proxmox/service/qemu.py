@@ -214,48 +214,51 @@ class QemuAgentManagement():
                 'status': QemuStatus.failure,
                 'exception' : e
             }
-        
+
     def check_vm_ready(self, node, vmid):
-        result = {
-            "ready": False,
-            "agent_running": False,
-            "message": "Unknown status"
-        }
-        
         try:
-            # Step 1: Check if the agent is responding to ping
             try:
                 self._proxmoxer.nodes(node).qemu(vmid).agent.ping.post()
-                result["agent_running"] = True
             except Exception as ping_error:
                 return {
                     'status': QemuStatus.failure,
-                    'exception' : ping_error
+                    'message': f"QEMU agent not responding to ping: {str(ping_error)}"
                 }
                 
-            # Step 2: Try a simple command execution as test
             try:
-                # Simple echo command that should work if the agent is truly ready
-                command_params = {'command': 'echo "ready"'}
+                exec_result = self._proxmoxer.nodes(node).qemu(vmid).agent.exec.post(
+                    command='cat /etc/os-release'
+                )
                 
-                # Try the agent/exec API endpoint directly
-                self._proxmoxer.nodes(node).qemu(vmid).agent.post('exec', **command_params)
+                pid = exec_result.get('pid')
+                if not pid:
+                    return {
+                        'status': QemuStatus.pending,
+                        'message': "Command did not return a PID. Likely still initializing."
+                    }
+                    
+                exec_status = getattr(self._proxmoxer.nodes(node).qemu(vmid).agent, 'exec-status')
+                status = exec_status.get(pid=pid)
                 
-                # If we get here without exception, the agent is ready for commands
-                result["ready"] = True
-                result["message"] = "VM agent is fully operational"
-                
-            except Exception as cmd_error:
+                if status.get('exited') and status.get('exitcode') == 0:
+                    return {
+                        'status': QemuStatus.running,
+                        'message': "VM is ready and QEMU agent commands are working."
+                    }
+                else:
+                    return {
+                        'status': QemuStatus.pending,
+                        'message': "Command is still running or failed — VM may still be initializing."
+                    }
+                    
+            except Exception as exec_error:
                 return {
-                    'status': QemuStatus.failure,
-                    'exception' : e
+                    'status': QemuStatus.pending,
+                    'message': f"Agent responded to ping, but command execution failed: {str(exec_error)}"
                 }
-            
+                
         except Exception as e:
             return {
                 'status': QemuStatus.failure,
-                'exception' : e
+                'message': f"Unexpected error during readiness check: {str(e)}"
             }
-        
-        return {"status" : QemuStatus.running}
-    
