@@ -42,3 +42,25 @@ def get_qemu_agent_status(
         return pve.qemu.get_qemu_agent_status(node=node, vmid=vmid)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get QEMU agent status: {str(e)}")
+    
+@router.get(path="/get_qemu_agent_info")
+def get_qemu_agent_info(
+    node: str, 
+    vmid: int,
+    pve: Proxmox = Depends(get_pve_conn)
+):
+    try:
+        return pve.qemu.get_qemu_agent_info(node=node, vmid=vmid)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get QEMU agent status: {str(e)}")
+    
+@router.get(path="/check_vm_ready")
+def check_vm_ready(
+    node: str, 
+    vmid: int,
+    pve: Proxmox = Depends(get_pve_conn)
+):
+    try:
+        return pve.qemu.check_vm_ready(node=node, vmid=vmid)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get QEMU memory blocks: {str(e)}")

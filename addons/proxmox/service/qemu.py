@@ -32,6 +32,10 @@ class QemuAgentManagement():
     def ping_qemu(self, node: str, vmid: int, **kwargs) -> List[Dict[str, Any]]:
         """Ping QEMU agent for a specific VM."""
         return self._proxmoxer.nodes(node).qemu(vmid).agent.ping.post()
+    
+    def get_memory_blocks(self, node: str, vmid: int, **kwargs) -> List[Dict[str, Any]]:
+        """Ping QEMU agent for a specific VM."""
+        return self._proxmoxer.nodes(node).qemu(vmid).agent.get('get-memory-blocks')
 
     def get_exec_status(self, node, vmid, pid):
         """Get the status of a command execution."""
@@ -200,4 +204,58 @@ class QemuAgentManagement():
                 'status': QemuStatus.failure,
                 'exception' : e
             }
+        
+    def get_qemu_agent_info(self, node: str, vmid: str) -> Dict[str, Any]:
+        try:
+            res = self._proxmoxer.nodes(node).qemu(vmid).agent.get('info')
+            return res
+        except Exception as e:
+            return {
+                'status': QemuStatus.failure,
+                'exception' : e
+            }
+        
+    def check_vm_ready(self, node, vmid):
+        result = {
+            "ready": False,
+            "agent_running": False,
+            "message": "Unknown status"
+        }
+        
+        try:
+            # Step 1: Check if the agent is responding to ping
+            try:
+                self._proxmoxer.nodes(node).qemu(vmid).agent.ping.post()
+                result["agent_running"] = True
+            except Exception as ping_error:
+                return {
+                    'status': QemuStatus.failure,
+                    'exception' : ping_error
+                }
+                
+            # Step 2: Try a simple command execution as test
+            try:
+                # Simple echo command that should work if the agent is truly ready
+                command_params = {'command': 'echo "ready"'}
+                
+                # Try the agent/exec API endpoint directly
+                self._proxmoxer.nodes(node).qemu(vmid).agent.post('exec', **command_params)
+                
+                # If we get here without exception, the agent is ready for commands
+                result["ready"] = True
+                result["message"] = "VM agent is fully operational"
+                
+            except Exception as cmd_error:
+                return {
+                    'status': QemuStatus.failure,
+                    'exception' : e
+                }
+            
+        except Exception as e:
+            return {
+                'status': QemuStatus.failure,
+                'exception' : e
+            }
+        
+        return {"status" : QemuStatus.running}
     
