@@ -59,7 +59,7 @@ class VirtualMachineManagement():
         )
 
         return {
-            "tasks" : [clone_vm],
+            "task" : clone_vm,
             "msg":msg,
             "vm" : {
                 "vmid": new_vmid,
@@ -80,11 +80,11 @@ class VirtualMachineManagement():
 # MARK:VM Management
 #######################
 
-    def resize_disk(self, node, vm_id, disk_name, size):
+    def resize_disk(self, node, vmid, disk_name, size):
         """
         Note: This endpoint is a bitch to work with.
         """
-        task = self._proxmoxer.nodes(node).qemu(vm_id).resize.put(
+        task = self._proxmoxer.nodes(node).qemu(vmid).resize.put(
             disk=disk_name,
             size=size
         )
@@ -96,36 +96,55 @@ class VirtualMachineManagement():
     
     def delete_vm(self, node: str, vmid: str, **kwargs) -> Dict[str, Any]:
         """Delete a VM."""
-        # TODO Write a check to see if the instance is runnning and if it is, shut it down. 
-        return self._proxmoxer.nodes(node).qemu(vmid).delete(**kwargs)
+        res = self._proxmoxer.nodes(node).qemu(vmid).delete(**kwargs)
+        return res
 
     def start_vm(self, node: str, vmid: str, **kwargs) -> Dict[str, Any]:
         """Start a VM."""
-        return self._proxmoxer.nodes(node).qemu(vmid).status.start.post(**kwargs)
+        res = self._proxmoxer.nodes(node).qemu(vmid).status.start.post(**kwargs)
+        return {
+            "task" : res,
+        }
 
     def stop_vm(self, node: str, vmid: str, **kwargs) -> Dict[str, Any]:
         """Stop a VM."""
-        return self._proxmoxer.nodes(node).qemu(vmid).status.stop.post(**kwargs)
+        res = self._proxmoxer.nodes(node).qemu(vmid).status.stop.post(**kwargs)
+        return  {
+            "task" : res
+        }
 
     def shutdown_vm(self, node: str, vmid: str, **kwargs) -> Dict[str, Any]:
         """Shutdown a VM."""
-        return self._proxmoxer.nodes(node).qemu(vmid).status.shutdown.post(**kwargs)
+        res = self._proxmoxer.nodes(node).qemu(vmid).status.shutdown.post(**kwargs)
+        return {
+            "task": res
+        }
 
     def reset_vm(self, node: str, vmid: str, **kwargs) -> Dict[str, Any]:
         """Reset a VM."""
-        return self._proxmoxer.nodes(node).qemu(vmid).status.reset.post(**kwargs)
+        res = self._proxmoxer.nodes(node).qemu(vmid).status.reset.post(**kwargs)
+        return res
 
     def reboot_vm(self, node: str, vmid: str, **kwargs) -> Dict[str, Any]:
         """Reboot a VM."""
-        return self._proxmoxer.nodes(node).qemu(vmid).status.reboot.post(**kwargs)
+        res = self._proxmoxer.nodes(node).qemu(vmid).status.reboot.post(**kwargs)
+        return {
+            "task" : res
+        }
 
     def suspend_vm(self, node: str, vmid: str, **kwargs) -> Dict[str, Any]:
         """Suspend a VM."""
-        return self._proxmoxer.nodes(node).qemu(vmid).status.suspend.post(**kwargs)
+        res = self._proxmoxer.nodes(node).qemu(vmid).status.suspend.post(**kwargs)
+        return {
+            "task": res
+        }
 
     def resume_vm(self, node: str, vmid: str, **kwargs) -> Dict[str, Any]:
         """Resume a VM."""
-        return self._proxmoxer.nodes(node).qemu(vmid).status.resume.post(**kwargs)
+        res = self._proxmoxer.nodes(node).qemu(vmid).status.resume.post(**kwargs)
+        return {
+            "task" : res
+        }
     
 
 #######################

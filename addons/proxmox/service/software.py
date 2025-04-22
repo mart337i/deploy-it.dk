@@ -72,7 +72,7 @@ class SoftwareMangement(QemuAgentManagement):
     def configure_vm(self, node: str, vmid: str, script_name: str):
         """Execute a predefined shell script template on a VM"""
         # Check Qemu status
-        qemu_available = self.await_qemu_agent_ready(node=node, vm_id=vmid)
+        qemu_available = self.await_qemu_agent_ready(node=node, vmid=vmid)
         if qemu_available != QemuStatus.running:
             raise ResourceException(status_code=500, status_message="Qemu agent not running")
     
@@ -99,7 +99,7 @@ class SoftwareMangement(QemuAgentManagement):
     def configure_vm_custom(self, node: str, vmid: str, script_file):
         """Execute a custom shell script uploaded by user on a VM"""
         # Check Qemu status
-        qemu_available = self.await_qemu_agent_ready(node=node, vm_id=vmid)
+        qemu_available = self.await_qemu_agent_ready(node=node, vmid=vmid)
         if qemu_available != QemuStatus.running:
             raise ResourceException(status_code=500, status_message="Qemu agent not running")
         

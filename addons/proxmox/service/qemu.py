@@ -16,10 +16,10 @@ class QemuAgentManagement():
 
     """Manages QEMU agent operations."""
 
-    def get_qemu_agent_status(self, node: str, vm_id: str) -> Dict[str, Any]:
+    def get_qemu_agent_status(self, node: str, vmid: str) -> Dict[str, Any]:
         """Get the status of the QEMU agent on a VM."""
         try:
-            self._proxmoxer.nodes(node).qemu(vm_id).agent.post('ping')
+            self._proxmoxer.nodes(node).qemu(vmid).agent.post('ping')
             return {"status": QemuStatus.running}
         except ResourceException as e:
             return {"status": QemuStatus.pending}
@@ -159,13 +159,13 @@ class QemuAgentManagement():
         response = self._proxmoxer.nodes(node).qemu(vmid).agent('exec').post(command=command)
         return response
     
-    def await_qemu_agent_ready(self, node: str, vm_id: str, timeout: int = 300, interval: int = 5) -> bool:
+    def await_qemu_agent_ready(self, node: str, vmid: str, timeout: int = 300, interval: int = 5) -> bool:
         """
         Waits for the QEMU agent to be ready.
         
         Args:
             node: Node name
-            vm_id: Virtual machine ID
+            vmid: Virtual machine ID
             timeout: Maximum time in seconds to wait for the agent to be ready
             interval: Time in seconds between each status check
             
@@ -175,7 +175,7 @@ class QemuAgentManagement():
         elapsed_time = 0
 
         while elapsed_time < timeout:
-            res = self.get_qemu_agent_status(node, vm_id)
+            res = self.get_qemu_agent_status(node, vmid)
             
             if res["status"] == QemuStatus.running:
                 return QemuStatus.running
@@ -186,12 +186,12 @@ class QemuAgentManagement():
             time.sleep(interval)
             elapsed_time += interval
 
-        _logger.warning(f"Timeout waiting for QEMU agent on VM {vm_id}")
+        _logger.warning(f"Timeout waiting for QEMU agent on VM {vmid}")
         return QemuStatus.failure
 
-    def get_qemu_agent_status(self, node: str, vm_id: str) -> Dict[str, Any]:
+    def get_qemu_agent_status(self, node: str, vmid: str) -> Dict[str, Any]:
         try:
-            self._proxmoxer.nodes(node).qemu(vm_id).agent.post('ping')
+            self._proxmoxer.nodes(node).qemu(vmid).agent.post('ping')
             return {"status" : QemuStatus.running}
         except ResourceException as e:
             return {"status" : QemuStatus.pending}
