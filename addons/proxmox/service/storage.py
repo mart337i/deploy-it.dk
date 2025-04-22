@@ -38,3 +38,21 @@ class StorageManagement():
         ]
         
         return iso_storages
+
+    def get_disk_size(self, node, vmid, disk_name):
+        try:
+            config = self._proxmoxer.nodes(node).qemu(vmid).config.get()
+            
+            for key, value in config.items():
+                if key == disk_name or (key.startswith(disk_name) and key[len(disk_name)].isdigit()):
+                    if isinstance(value, str) and "size=" in value:
+                        size_part = [part for part in value.split(',') if part.startswith('size=')]
+                        if size_part:
+                            return size_part[0].replace('size=', '')
+                    elif isinstance(value, dict) and 'size' in value:
+                        return value['size']
+            
+            return None
+            
+        except Exception as e:
+            raise Exception(f"Failed to get disk size: {str(e)}")

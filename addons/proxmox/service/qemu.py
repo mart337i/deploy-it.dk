@@ -215,7 +215,7 @@ class QemuAgentManagement():
                 'exception' : e
             }
 
-    def check_vm_ready(self, node, vmid):
+    def check_apt_writable(self, node, vmid):
         try:
             try:
                 self._proxmoxer.nodes(node).qemu(vmid).agent.ping.post()
