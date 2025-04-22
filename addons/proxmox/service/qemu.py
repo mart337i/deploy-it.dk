@@ -226,39 +226,61 @@ class QemuAgentManagement():
                 }
                 
             try:
-                exec_result = self._proxmoxer.nodes(node).qemu(vmid).agent.exec.post(
-                    command='cat /etc/os-release'
+                exec_res = self._proxmoxer.nodes(node).qemu(vmid).agent("exec").post(
+                    command=["apt-get", "-s", "install", "apt-utils"]
                 )
                 
-                pid = exec_result.get('pid')
+                pid = exec_res.get('pid')
                 if not pid:
                     return {
                         'status': QemuStatus.pending,
-                        'message': "Command did not return a PID. Likely still initializing."
+                        'message': "Command did not return a PID. VM still initializing."
                     }
                     
-                exec_status = getattr(self._proxmoxer.nodes(node).qemu(vmid).agent, 'exec-status')
-                status = exec_status.get(pid=pid)
+                max_wait_time = 15  # seconds
+                start_time = time.time()
                 
-                if status.get('exited') and status.get('exitcode') == 0:
-                    return {
-                        'status': QemuStatus.running,
-                        'message': "VM is ready and QEMU agent commands are working."
-                    }
-                else:
-                    return {
-                        'status': QemuStatus.pending,
-                        'message': "Command is still running or failed — VM may still be initializing."
-                    }
+                while True:
+                    exec_status = self._proxmoxer.nodes(node).qemu(vmid).agent("exec-status").get(
+                        pid=pid
+                    )
+                    
+                    if exec_status.get('exited', False):
+                        exit_code = exec_status.get('exitcode', 1)
+                        
+                        if exit_code == 0:
+                            return {
+                                'status': QemuStatus.running,
+                                'message': "VM is ready and system services are available."
+                            }
+                        else:
+                            err_data = exec_status.get('err-data', '')
+                            if 'Could not get lock' in err_data:
+                                return {
+                                    'status': QemuStatus.pending,
+                                    'message': "System is still initializing (package management is locked)."
+                                }
+                            else:
+                                return {
+                                    'status': QemuStatus.failure,
+                                    'message': f"Readiness check failed with exit code: {exit_code}"
+                                }
+                    
+                    if time.time() - start_time > max_wait_time:
+                        return {
+                            'status': QemuStatus.pending,
+                            'message': "System still initializing. Command timed out."
+                        }
+                    time.sleep(1)
                     
             except Exception as exec_error:
                 return {
                     'status': QemuStatus.pending,
-                    'message': f"Agent responded to ping, but command execution failed: {str(exec_error)}"
+                    'message': f"VM not ready: {str(exec_error)}"
                 }
                 
         except Exception as e:
             return {
                 'status': QemuStatus.failure,
-                'message': f"Unexpected error during readiness check: {str(e)}"
+                'message': f"Check failed: {str(e)}"
             }

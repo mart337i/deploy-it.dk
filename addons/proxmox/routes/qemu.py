@@ -54,13 +54,13 @@ def get_qemu_agent_info(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get QEMU agent status: {str(e)}")
     
-@router.get(path="/check_vm_ready")
-def check_vm_ready(
+@router.get(path="/check_apt_writable")
+def check_apt_writable(
     node: str, 
     vmid: int,
     pve: Proxmox = Depends(get_pve_conn)
 ):
     try:
-        return pve.qemu.check_vm_ready(node=node, vmid=vmid)
+        return pve.qemu.check_apt_writable(node=node, vmid=vmid)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get QEMU memory blocks: {str(e)}")

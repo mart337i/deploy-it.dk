@@ -131,6 +131,8 @@ class User(models.Model):
 - All Commands will be loaded in the cli dir inside addons folder (app = typer.Typer(help="Test commands")) Use app as the varibale name, other wise it dosent work.
 - All Routes will be loaded inside the addons folder (router = APIRouter()) use router, other wise it donsent work. 
 
+## Note
+- The timeout on the API is set to 30 secound instaed of 5
 
 ## Thanks to: 
 ### Techno Tim
