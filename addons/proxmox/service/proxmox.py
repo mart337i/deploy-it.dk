@@ -51,7 +51,8 @@ class Proxmox:
                 user=user,
                 token_name = token_name,
                 token_value=token_value,
-                verify_ssl=verify_ssl
+                verify_ssl=verify_ssl,
+                timeout=30,
             )
         elif auth_type == Authtype.password:
             self._proxmoxer = ProxmoxAPI(
@@ -59,7 +60,8 @@ class Proxmox:
                 backend = backend,
                 user = user,
                 password=password,
-                verify_ssl=verify_ssl
+                verify_ssl=verify_ssl,
+                timeout=30,
             )
         else: 
             raise SleepyDeveloperError("missing auth type")
