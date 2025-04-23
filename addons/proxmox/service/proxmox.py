@@ -16,6 +16,8 @@ from proxmox.service.task import TaskManagement
 from proxmox.service.vm import VirtualMachineManagement
 from proxmox.service.user import UserManagement
 
+from proxmox.utils.exceptions import InvalidConfiguration
+
 class Proxmox:
     """Main client for interacting with Proxmox VE via the proxmoxer API."""
     
@@ -100,9 +102,13 @@ def get_connection() -> Proxmox:
         host = configuration.loaded_config['host']
         user = configuration.loaded_config['user']
         token_name = configuration.loaded_config["token_name"]
-        token_value = configuration.loaded_config["token_value"]
+        token_value = configuration.env.get('token_value',False)
         verify_ssl = False
         auth_type = Authtype.token
+
+        if not token_value:
+            raise InvalidConfiguration("Missing token in loaded env.")
+        
     except Exception as e:
         raise SleepyDeveloperError(f"Missing required configuration key: {e}")
 
