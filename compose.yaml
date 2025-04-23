@@ -5,6 +5,4 @@ services:
       - 8000:8000
     environment:
       token_value: ${token_value}
-      CLICX_DEBUG: 0
-      LOG_LEVEL: DEBUG
-      LOG_TO_FILE: 1
+
