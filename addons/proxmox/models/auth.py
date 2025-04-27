@@ -4,14 +4,6 @@ from pydantic import BaseModel
 
 _logger = logging.getLogger(__name__)
 
-#######################
-# MARK: Class Definition and Initialization
-#######################
-
-class Authtype(str,Enum):
-    token="token"
-    password="password"
-
 class TokenAuth(BaseModel):
     host : str
     user : str

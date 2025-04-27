@@ -1,200 +1,209 @@
-
-from typing import Annotated, Any
-
+# vm_routes.py
+from typing import Any
 import validators
-from fastapi import File, HTTPException, UploadFile, Depends
+from fastapi import HTTPException, Depends
 from fastapi.routing import APIRouter
-from proxmox.models.auth import TokenAuth
-from proxmox.models.proxmox import proxmox
-from proxmox.schema.bash import BashCommand
+from proxmox.service.proxmox import Proxmox
 from proxmox.schema.vm import CloneVM, VirtualMachine
-from proxmox.utils.yml_parser import read as yml_read
-from proxmox.utils.yml_parser import validate as yml_validate
+from proxmox import API_VERSION, NAME
+from proxmox.service import proxmox
 
-from clicx.config import configuration
-
-from proxmox.middleware.auth import pass_through_authentication
-
+def get_pve_conn() -> Proxmox:
+    return proxmox.get_connection()
 
 router = APIRouter(
-    prefix=f"/proxmox/v1/vm",
-    tags=["Virtual machine control"],
+    prefix=f"/{NAME}/{API_VERSION}/vm",
+    tags=["Virtual Machine Management"],
 )
-
-dependency = [Depends(dependency=pass_through_authentication)]
-
-def pve_conn(
-    host: str = configuration.loaded_config['host'],
-    user: str = configuration.loaded_config['user'],
-    token_name: str = configuration.loaded_config["token_name"],
-    token_value: str = configuration.loaded_config["token_value"],
-    verify_ssl: bool = False,
-    auth_type: str = "token",
-):
-    return proxmox(
-        **vars(TokenAuth(
-            host=host,
-            user=user,
-            token_name=token_name,
-            token_value=token_value,
-            verify_ssl=verify_ssl,
-            auth_type=auth_type,
-        ))
-    )
+dependency = []
 
 @router.get(path="/get_vm_ids")
-def get_vm_ids(node : str) -> Any:
-    return pve_conn().get_vm_ids(node=node)
+def get_vm_ids(node: str, pve: Proxmox = Depends(get_pve_conn)) -> Any:
+    try:
+        return pve.vm.get_vm_ids(node=node)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get VM IDs: {str(e)}")
 
 @router.get(path="/get_all_configurations")
-def get_all_configurations() -> Any:
-    return pve_conn().get_all_configurations()
-
-@router.post(path="/install_docker_engine")
-def install_docker_engine(node,vmid):
-    return pve_conn().install_docker_engine(node,vmid)
-
-@router.post(path="/pull_docker_image")
-def pull_docker_image(node,vmid,image_name):
-    return pve_conn().pull_docker_image(node,vmid,image_name)
-
-@router.post(path="/start_docker_image")
-def start_docker_image(node: str, vmid: int, image_name: str, container_name: str,
-                       port_mapping: str = "", volume_mapping: str = "", env_vars: str = ""):
-    return pve_conn().start_docker_image(
-        node=node,
-        vmid=vmid,
-        image_name=image_name,
-        container_name=container_name,
-        port_mapping=port_mapping,
-        volume_mapping=volume_mapping,
-        env_vars=env_vars
-    )
-
-@router.post(path="/stop_docker_image")
-def stop_docker_image(node, vmid, container_name, remove_container):
-    return pve_conn().stop_docker_image(node, vmid, container_name, remove_container)
-
+def get_all_configurations(pve: Proxmox = Depends(get_pve_conn)) -> Any:
+    try:
+        return pve.vm.get_all_configurations()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get configurations: {str(e)}")
 
 @router.get(path="/get_next_available_vm_id")
-def get_next_available_vm_id() -> Any:
-    return {
-        "vmid": int(pve_conn().get_next_available_vm_id())
-    }
-
-@router.post(path="/configure_vm")
-def configure_vm(node : str, vmid: int, config_name : str):
-    return pve_conn().configure_vm(node=node,vmid=vmid,script_name=config_name)
-
-@router.post(path="/configure_vm_custom")
-def configure_vm_custom(node : str, vmid: int, config_file : UploadFile = File(...)):
-    return pve_conn().configure_vm_custom(node=node,vmid=vmid,script_file=config_file)
-
-@router.post(path="/clone-vm")
-def clone_vm(node: str, vm_config: CloneVM):
-    if not validators.hostname(vm_config.name):
-        raise HTTPException(422, "Invalid Hostname")
-    try: 
-        return pve_conn().clone_vm(node=node,config=vm_config.model_dump())
+def get_next_available_vm_id(pve: Proxmox = Depends(get_pve_conn)) -> Any:
+    try:
+        return {
+            "vmid": int(pve.vm.get_next_available_vm_id())
+        }
     except Exception as e:
-        raise HTTPException(500, e)
-    
-@router.post(path="/create-vm")
-def create_vm(node: str, vm_config: VirtualMachine):
+        raise HTTPException(status_code=500, detail=f"Failed to get next available VM ID: {str(e)}")
+
+@router.post(path="/clone_vm")
+def clone_vm(
+    node: str, 
+    vm_config: CloneVM,
+    pve: Proxmox = Depends(get_pve_conn)
+):
+    try:
+        if not validators.hostname(vm_config.name):
+            raise HTTPException(422, "Invalid Hostname")
+        return pve.vm.clone_vm(node=node, config=vm_config.model_dump())
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to clone VM: {str(e)}")
+
+@router.post(path="/create_vm")
+def create_vm(
+    node: str, 
+    vm_config: VirtualMachine,
+    pve: Proxmox = Depends(get_pve_conn)
+):
     try:
         config = vm_config.config
-        vm = pve_conn().create_vm(node=node,config=config)
+        vm = pve.vm.create_vm(node=node, config=config)
         return vm
-    
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get(path="/get_vm_ip")
-def get_vm_ip(node : str, vmid : int):
-
-    response = pve_conn().get_vm_ip(node=node, vmid=vmid)
-    if response == None:
-        raise HTTPException(500, detail=f"Chould not resive ip, see API log for more info")
-    return response
-
-@router.get(path="/ping_qemu")
-def ping_qemu(node : str, vmid : int):
-
-    response = pve_conn().ping_qemu(node=node, vmid=vmid)
-    if response == None:
-        raise HTTPException(500, detail=f"Failed to ping QEMU guest agent")
-    return response
-
-@router.get(path="/get_qemu_agent_status")
-def get_qemu_agent_status(node : str, vmid : int):
-    response = pve_conn().get_qemu_agent_status(node=node,vm_id=vmid)
-    return response
+        raise HTTPException(status_code=500, detail=f"Failed to create VM: {str(e)}")
 
 @router.put("/resize_disk")
-def resize_disk(node: str,vm_id: int,disk: str,new_size: str):
-    return pve_conn().resize_vm_disk(node=node,vm_id=vm_id,disk=disk,new_size=new_size)
-
-@router.get("/await_task_completion")
-def await_task_completion(node: str, upid: str, timeout: int = 300, interval: int = 5):
-    return pve_conn().await_task_completion(node=node, upid=upid,timeout=timeout,interval=interval)
-
-@router.get("/get_task_status")
-def get_task_status(node: str, upid: str):
-    return pve_conn().get_task_status(node=node, upid=upid)
-
-@router.get("/list_tasks")
-def list_tasks(node: str):
-    return pve_conn().list_tasks(node=node)
-
-@router.get("/get_task_logs")
-def get_task_logs(node: str, upid: str):
-    return pve_conn().get_task_logs(node=node,upid=upid)
+def resize_disk(
+    node: str,
+    vmid: int,
+    disk: str,
+    new_size: str,
+    pve: Proxmox = Depends(get_pve_conn)
+):
+    try:
+        return pve.vm.resize_disk(node=node, vmid=vmid, disk_name=disk, size=f'+{new_size}G')
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to resize disk: {str(e)}")
 
 @router.get("/list_vms")
-def list_vms(node:str) -> Any:
-    return pve_conn().list_vms(node=node)
-    
-@router.get("/list_all_vm_ids")
-def list_all_vm_ids() -> Any:
+def list_vms(
+    node: str,
+    pve: Proxmox = Depends(get_pve_conn)
+) -> Any:
+    try:
+        return pve.vm.list_vms(node=node)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list VMs: {str(e)}")
 
-    return pve_conn().list_all_vm_ids()
+@router.get("/list_all_vm_ids")
+def list_all_vm_ids(pve: Proxmox = Depends(get_pve_conn)) -> Any:
+    try:
+        return pve.vm.list_all_vm_ids()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list all VM IDs: {str(e)}")
 
 @router.get("/get_vm_status")
-def get_vm_status(node: str, vmid: str) -> Any:
-    return pve_conn().get_vm_status(node=node, vmid=vmid)
+def get_vm_status(
+    node: str, 
+    vmid: str,
+    pve: Proxmox = Depends(get_pve_conn)
+) -> Any:
+    try:
+        return pve.vm.get_vm_status(node=node, vmid=vmid)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get VM status: {str(e)}")
 
 @router.get("/get_vm_config")
-def get_vm_config(node: str, vmid: str) -> Any:
-    return pve_conn().get_vm_config(node=node, vmid=vmid)
+def get_vm_config(
+    node: str, 
+    vmid: str,
+    pve: Proxmox = Depends(get_pve_conn)
+) -> Any:
+    try:
+        return pve.vm.get_vm_config(node=node, vmid=vmid)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get VM configuration: {str(e)}")
 
 @router.delete("/delete_vm")
-def delete_vm(node: str, vmid: str) -> Any:
-    return pve_conn().delete_vm(node=node, vmid=vmid)
+def delete_vm(
+    node: str, 
+    vmid: str,
+    pve: Proxmox = Depends(get_pve_conn)
+) -> Any:
+    try:
+        return pve.vm.delete_vm(node=node, vmid=vmid)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete VM: {str(e)}")
 
 @router.post("/start_vm")
-def start_vm(node: str, vmid: str) -> Any:
-    return pve_conn().start_vm(node=node, vmid=vmid)
+def start_vm(
+    node: str, 
+    vmid: str,
+    pve: Proxmox = Depends(get_pve_conn)
+) -> Any:
+    try:
+        return pve.vm.start_vm(node=node, vmid=vmid)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start VM: {str(e)}")
 
 @router.post("/stop_vm")
-def stop_vm(node: str, vmid: str) -> Any:
-    return pve_conn().stop_vm(node=node, vmid=vmid)
+def stop_vm(
+    node: str, 
+    vmid: str,
+    pve: Proxmox = Depends(get_pve_conn)
+) -> Any:
+    try:
+        return pve.vm.stop_vm(node=node, vmid=vmid)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to stop VM: {str(e)}")
 
 @router.post("/shutdown_vm")
-def shutdown_vm(node: str, vmid: str) -> Any:
-    return pve_conn().shutdown_vm(node=node, vmid=vmid)
+def shutdown_vm(
+    node: str, 
+    vmid: str,
+    pve: Proxmox = Depends(get_pve_conn)
+) -> Any:
+    try:
+        return pve.vm.shutdown_vm(node=node, vmid=vmid)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to shutdown VM: {str(e)}")
 
 @router.post("/reset_vm")
-def reset_vm(node: str, vmid: str) -> Any:
-    return pve_conn().reset_vm(node=node, vmid=vmid)
+def reset_vm(
+    node: str, 
+    vmid: str,
+    pve: Proxmox = Depends(get_pve_conn)
+) -> Any:
+    try:
+        return pve.vm.reset_vm(node=node, vmid=vmid)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to reset VM: {str(e)}")
 
 @router.post("/reboot_vm")
-def reboot_vm(node: str, vmid: str) -> Any:
-    return pve_conn().reboot_vm(node=node, vmid=vmid)
+def reboot_vm(
+    node: str, 
+    vmid: str,
+    pve: Proxmox = Depends(get_pve_conn)
+) -> Any:
+    try:
+        return pve.vm.reboot_vm(node=node, vmid=vmid)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to reboot VM: {str(e)}")
 
 @router.post("/suspend_vm")
-def suspend_vm(node: str, vmid: str) -> Any:
-    return pve_conn().suspend_vm(node=node, vmid=vmid)
+def suspend_vm(
+    node: str, 
+    vmid: str,
+    pve: Proxmox = Depends(get_pve_conn)
+) -> Any:
+    try:
+        return pve.vm.suspend_vm(node=node, vmid=vmid)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to suspend VM: {str(e)}")
 
 @router.post("/resume_vm")
-def resume_vm(node: str, vmid: str) -> Any:
-    return pve_conn().resume_vm(node=node, vmid=vmid)
+def resume_vm(
+    node: str, 
+    vmid: str,
+    pve: Proxmox = Depends(get_pve_conn)
+) -> Any:
+    try:
+        return pve.vm.resume_vm(node=node, vmid=vmid)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to resume VM: {str(e)}")

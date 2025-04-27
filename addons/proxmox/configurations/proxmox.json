@@ -1,6 +1,5 @@
 {
     "token_name": "API-Token",
-    "token_value": "2d71af35-25a4-4233-a69e-e1ce90f699e5",
     "user": "api@pam",
     "host": "192.168.1.10",
     "available_nodes": ["node1", "node2", "node3"]

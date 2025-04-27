@@ -96,6 +96,34 @@ poetry install
 pip install -e .
 
 ```
+
+
+## Set up a database
+```sh
+sudo apt install postgresql postgresql-client
+```
+
+```sh
+ sudo -u postgres createuser -d -R -S $USER
+ createdb $USER
+```
+
+To define model that the ORM will pick up do the following.
+```py
+from sqlalchemy import Column, Integer, String
+
+# Import the database model
+from clicx.database import models
+
+class User(models.Model):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True)
+    username = Column(String, unique=True)
+    password = Column(String)
+
+```
+
 ## Usage
 
 - All .env files will be loaded if they are loacted in the addons folder
@@ -103,6 +131,8 @@ pip install -e .
 - All Commands will be loaded in the cli dir inside addons folder (app = typer.Typer(help="Test commands")) Use app as the varibale name, other wise it dosent work.
 - All Routes will be loaded inside the addons folder (router = APIRouter()) use router, other wise it donsent work. 
 
+## Note
+- The timeout on the API is set to 30 secound instaed of 5
 
 ## Thanks to: 
 ### Techno Tim

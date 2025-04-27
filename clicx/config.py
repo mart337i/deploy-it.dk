@@ -1,14 +1,15 @@
 import glob
 import json
 import logging
+import logging.config
 import os
 
 import rich
 from dotenv import load_dotenv
 
+from clicx import NAME
 from clicx import addons as addons_dir
 from clicx import project_root
-from clicx import NAME
 
 
 class Configuration:
@@ -71,58 +72,64 @@ class Configuration:
                 self.loaded_config.update(data)
                 f.close()
 
+
     def setup_logging(
-            self,
-            app_name='app',
-            log_filename='app.log',
-            log_level=logging.INFO,
-            log_to_file=False
-        ):
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
-        )
-    
-        logging.getLogger().handlers = []
-        
-        root_logger = logging.getLogger()
-        root_logger.setLevel(log_level)
-        
+        self,
+        app_name='app',
+        log_filename='app.log',
+        log_level=logging.INFO,
+        log_to_file=False,
+    ):
+
+        log_dir = os.path.join(project_root, 'logs')
+        log_path = os.path.join(log_dir, log_filename)
+
         if log_to_file:
-            log_dir = os.path.join(project_root, 'logs')
-            if not os.path.exists(log_dir):
-                os.makedirs(log_dir)
-                
-            file_handler = logging.FileHandler(os.path.join(log_dir, log_filename))
-            file_handler.setLevel(log_level)
-            file_handler.setFormatter(formatter)
-            
-            root_logger.addHandler(file_handler)
-            
-            loggers = ['uvicorn', 'uvicorn.access', 'uvicorn.error', NAME]
-            for logger_name in loggers:
-                logger = logging.getLogger(logger_name)
-                logger.handlers = []  # Clear existing handlers
-                logger.setLevel(log_level)
-                logger.propagate = False  # Don't propagate to root logger
-                logger.addHandler(file_handler)
-        else:
-            console_handler = logging.StreamHandler()
-            console_handler.setLevel(log_level)
-            console_handler.setFormatter(formatter)
-            
-            root_logger.addHandler(console_handler)
-            
-            loggers = ['uvicorn', 'uvicorn.access', 'uvicorn.error', NAME]
-            for logger_name in loggers:
-                logger = logging.getLogger(logger_name)
-                logger.handlers = []  
-                logger.setLevel(log_level)
-                logger.propagate = False  
-                logger.addHandler(console_handler)
-        
-        app_logger = logging.getLogger(NAME)
-        
-        return app_logger
+            os.makedirs(log_dir, exist_ok=True)
+
+        formatter = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+
+        handlers = {
+            'console': {
+                'class': 'logging.StreamHandler',
+                'formatter': 'default',
+                'level': log_level,
+            },
+        }
+
+        if log_to_file:
+            handlers['file'] = {
+                'class': 'logging.FileHandler',
+                'filename': log_path,
+                'formatter': 'default',
+                'level': log_level,
+            }
+
+        logging_config = {
+            'version': 1,
+            'disable_existing_loggers': False,
+            'formatters': {
+                'default': {
+                    'format': formatter,
+                    'datefmt': '%Y-%m-%d %H:%M:%S',
+                }
+            },
+            'handlers': handlers,
+            'root': {
+                'level': log_level,
+                'handlers': list(handlers.keys())
+            },
+            'loggers': {
+                name: {
+                    'handlers': list(handlers.keys()),
+                    'level': log_level,
+                    'propagate': False
+                } for name in ['uvicorn', 'uvicorn.access', 'uvicorn.error', app_name]
+            }
+        }
+
+        logging.config.dictConfig(logging_config)
+        return logging.getLogger(app_name)
+
         
 configuration: Configuration = Configuration(addons_dir)
