@@ -3,7 +3,7 @@ from typing import Optional
 from typing import Dict, Any, Optional, List
 
 class Task(BaseModel):
-    task: str = Field(..., description="The VMID of the source VM to clone.")
+    task: str = Field(..., description="The task ID for the operation")
     
     class Config:
         extra = 'forbid'
