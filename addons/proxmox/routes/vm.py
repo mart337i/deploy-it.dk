@@ -5,6 +5,7 @@ from fastapi import HTTPException, Depends
 from fastapi.routing import APIRouter
 from proxmox.service.proxmox import Proxmox
 from proxmox.schema.vm import CloneVM, VirtualMachine
+from proxmox.schema.task import Task
 from proxmox import API_VERSION, NAME
 from proxmox.service import proxmox
 
@@ -75,7 +76,7 @@ def resize_disk(
     disk: str,
     new_size: str,
     pve: Proxmox = Depends(get_pve_conn)
-):
+) -> None:
     try:
         return pve.vm.resize_disk(node=node, vmid=vmid, disk_name=disk, size=f'+{new_size}G')
     except Exception as e:
@@ -125,7 +126,7 @@ def delete_vm(
     node: str, 
     vmid: str,
     pve: Proxmox = Depends(get_pve_conn)
-) -> Any:
+) -> Task:
     try:
         return pve.vm.delete_vm(node=node, vmid=vmid)
     except Exception as e:
@@ -136,7 +137,7 @@ def start_vm(
     node: str, 
     vmid: str,
     pve: Proxmox = Depends(get_pve_conn)
-) -> Any:
+) -> Task:
     try:
         return pve.vm.start_vm(node=node, vmid=vmid)
     except Exception as e:
@@ -147,7 +148,7 @@ def stop_vm(
     node: str, 
     vmid: str,
     pve: Proxmox = Depends(get_pve_conn)
-) -> Any:
+) -> Task:
     try:
         return pve.vm.stop_vm(node=node, vmid=vmid)
     except Exception as e:
@@ -158,7 +159,7 @@ def shutdown_vm(
     node: str, 
     vmid: str,
     pve: Proxmox = Depends(get_pve_conn)
-) -> Any:
+) -> Task:
     try:
         return pve.vm.shutdown_vm(node=node, vmid=vmid)
     except Exception as e:
@@ -169,7 +170,7 @@ def reset_vm(
     node: str, 
     vmid: str,
     pve: Proxmox = Depends(get_pve_conn)
-) -> Any:
+) -> Task:
     try:
         return pve.vm.reset_vm(node=node, vmid=vmid)
     except Exception as e:
@@ -180,7 +181,7 @@ def reboot_vm(
     node: str, 
     vmid: str,
     pve: Proxmox = Depends(get_pve_conn)
-) -> Any:
+) -> Task:
     try:
         return pve.vm.reboot_vm(node=node, vmid=vmid)
     except Exception as e:
@@ -191,7 +192,7 @@ def suspend_vm(
     node: str, 
     vmid: str,
     pve: Proxmox = Depends(get_pve_conn)
-) -> Any:
+) -> Task:
     try:
         return pve.vm.suspend_vm(node=node, vmid=vmid)
     except Exception as e:
@@ -202,7 +203,7 @@ def resume_vm(
     node: str, 
     vmid: str,
     pve: Proxmox = Depends(get_pve_conn)
-) -> Any:
+) -> Task:
     try:
         return pve.vm.resume_vm(node=node, vmid=vmid)
     except Exception as e:
