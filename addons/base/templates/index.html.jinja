@@ -94,14 +94,28 @@
     </nav>
 
     <!-- Hero section -->
-    <div class="py-12 bg-primary-600">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="py-12 bg-blue-900 relative overflow-hidden">
+        <!-- Base background -->
+        <div class="absolute inset-0 bg-gradient-to-br from-blue-900 to-blue-800"></div>
+        
+        <!-- More dynamic background elements -->
+        <div class="absolute -top-20 -right-20 w-96 h-96 bg-gradient-to-bl from-red-500/50 to-pink-500/30 blur-3xl transform -rotate-12"></div>
+        <div class="absolute top-1/4 left-1/4 w-64 h-64 bg-gradient-to-tr from-blue-400/40 to-purple-400/20 blur-3xl transform rotate-45"></div>
+        <div class="absolute -bottom-20 left-1/3 w-96 h-96 bg-gradient-to-r from-blue-400/30 to-cyan-300/20 blur-3xl transform -rotate-6"></div>
+        <div class="absolute top-1/2 -right-10 w-80 h-80 bg-gradient-to-tl from-pink-600/20 to-red-300/10 blur-3xl transform rotate-12"></div>
+        <div class="absolute -bottom-10 -left-20 w-72 h-72 bg-gradient-to-tr from-blue-500/30 to-indigo-400/10 blur-3xl transform -rotate-12"></div>
+        
+        <!-- Wavy elements for more movement -->
+        <div class="absolute top-10 right-1/4 w-96 h-20 bg-gradient-to-r from-red-500/20 to-pink-400/10 blur-2xl transform -skew-y-6"></div>
+        <div class="absolute bottom-10 left-1/4 w-96 h-20 bg-gradient-to-r from-blue-400/20 to-cyan-300/10 blur-2xl transform skew-y-6"></div>
+        
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
             <div class="lg:text-center">
-                <h2 class="text-base text-primary-100 font-semibold tracking-wide uppercase">{{ hero_subtitle | default("Documentation") }}</h2>
+                <h2 class="text-base text-blue-200 font-semibold tracking-wide uppercase">{{ hero_subtitle | default("Documentation") }}</h2>
                 <p class="mt-2 text-3xl leading-8 font-bold tracking-tight text-white sm:text-4xl">
                     {{ hero_title | default("Welcome to the API Platform") }}
                 </p>
-                <p class="mt-4 max-w-2xl text-xl text-primary-100 lg:mx-auto">
+                <p class="mt-4 max-w-2xl text-xl text-blue-200 lg:mx-auto">
                     {{ hero_description | default("Explore the available endpoints and learn how to integrate with our API.") }}
                 </p>
             </div>
@@ -167,8 +181,23 @@
                         <div class="endpoint-card bg-white overflow-hidden shadow rounded-lg transition-all duration-300">
                             <div class="px-4 py-5 sm:p-6">
                                 <div class="flex items-center">
-                                    <div class="flex-shrink-0 bg-{{ endpoint.method_color | default('primary-500') }} rounded-md p-3">
-                                        <span class="text-white text-sm font-bold">{{ endpoint.method | default('GET') }}</span>
+                                    <div class="flex-shrink-0 rounded-md p-3
+                                    {% set method = endpoint.methods|first | default('GET') %}
+                                    {% if method == 'GET' %}
+                                        bg-green-500
+                                    {% elif method == 'POST' %}
+                                        bg-blue-500
+                                    {% elif method == 'PUT' %}
+                                        bg-yellow-500
+                                    {% elif method == 'PATCH' %}
+                                        bg-purple-500
+                                    {% elif method == 'DELETE' %}
+                                        bg-red-500
+                                    {% else %}
+                                        bg-gray-500
+                                    {% endif %}
+                                    ">
+                                    <span class="text-white text-sm font-bold">{{ endpoint.methods|first | default('GET') }}</span>
                                     </div>
                                     <div class="ml-4">
                                         <h3 class="text-lg font-medium text-gray-900 truncate">{{ endpoint.name }}</h3>

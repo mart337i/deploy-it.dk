@@ -1,8 +1,8 @@
 services:
   server:
-    privileged: true
     image: ghcr.io/mart337i/deploy-it.dk:${GIT_COMMIT_HASH}
     ports:
       - 8000:8000
-    volumes:
-      - /etc/openvpn:/etc/openvpn
+    environment:
+      token_value: ${token_value}
+

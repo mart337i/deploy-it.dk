@@ -1,14 +1,28 @@
-# Deploy-it.dk deployment API
-## Setup Proxmox
+# Deploy-it.dk Deployment Guide
 
-## Proxmox VM Creation Guide
+## Introduction
 
-Here's a concise guide to creating virtual machines in Proxmox using the provided commands:
+This documentation provides step-by-step instructions for setting up the Deploy-it.dk deployment infrastructure. The guide covers Proxmox VM configuration, API setup, database configuration, and important usage notes. By following these instructions, you'll be able to establish a complete deployment environment for hosting virtual private servers with different resource configurations.
 
-## Proxmox VPS Configuration Guide
-Create the following on each of the proxmox nodes
+## Table of Contents
+- [Proxmox VM Configuration](#proxmox-vm-configuration)
+  - [Available VM Configurations](#available-vm-configurations)
+  - [VM Creation Commands](#vm-creation-commands)
+  - [Post-Configuration Steps](#post-configuration-steps)
+- [API Setup](#api-setup)
+- [Database Configuration](#database-configuration)
+  - [ORM Model Definition](#orm-model-definition)
+- [Usage Guidelines](#usage-guidelines)
+  - [File Loading](#file-loading)
+  - [Command Loading](#command-loading)
+  - [Route Loading](#route-loading)
+- [Notes](#notes)
+- [Acknowledgements](#acknowledgements)
+- [Troubleshooting](#troubleshooting)
 
-### Available Configurations
+## Proxmox VM Configuration
+
+### Available VM Configurations
 
 | Configuration ID | Name | Memory (GB) | CPU Cores |
 |-----------------|------|------------|-----------|
@@ -17,7 +31,9 @@ Create the following on each of the proxmox nodes
 | 9200 | Standard VPS | 8 | 4 |
 | 9300 | Premium VPS | 16 | 8 |
 
-### Creation Commands
+### VM Creation Commands
+
+Each configuration must be created on all Proxmox nodes.
 
 #### Default VM Config (ID: 9000)
 ```bash
@@ -59,13 +75,15 @@ qm set 9300 --boot c --bootdisk scsi0
 qm set 9300 --serial0 socket --vga serial0
 ```
 
-Now we need to install the qemu-guest-agent using:
-```sh
+### Post-Configuration Steps
+
+Install the QEMU guest agent:
+```bash
 sudo apt install qemu-guest-agent -y 
 ```
-and then run:
 
-```sh  
+Reset the machine ID to ensure proper machine identification when cloning:
+```bash  
 sudo rm -f /etc/machine-id
 sudo touch /etc/machine-id
 
@@ -73,61 +91,95 @@ sudo rm -f /var/lib/dbus/machine-id
 sudo ln -s /etc/machine-id /var/lib/dbus/machine-id
 ``` 
 
-Then just shutdown the template vm and when cloning from the vm it will get a new machine id.
+After completing these steps, shut down the template VM. When cloning from this VM, each clone will get a new machine ID.
 
-## Setup the API
-```sh
+## API Setup
+
+Set up a Python virtual environment:
+```bash
 python3 -m venv .venv
+source .venv/bin/activate
 ```
 
-```sh
-source .venv/bin/actiavte
-
-```
-```sh
+Install Poetry for dependency management:
+```bash
 curl -sSL https://install.python-poetry.org | python3 -
 ```
 
-```sh
+Install dependencies:
+```bash
 poetry install
 ```
 
-```sh
+Install the package in development mode:
+```bash
 pip install -e .
 ```
 
-```sh
-clicx --help
+## Database Configuration
+
+Install PostgreSQL:
+```bash
+sudo apt install postgresql postgresql-client
 ```
-## Usage
 
-- All .env files will be loaded if they are loacted in the addons folder
-- All .json files will be loaded if they are loacted in the addons folder
-- All Commands will be loaded in the cli dir inside addons folder (app = typer.Typer(help="Test commands")) Use app as the varibale name, other wise it dosent work.
-- All Routes will be loaded inside the addons folder (router = APIRouter()) use router, other wise it donsent work. 
+Create a database user and database:
+```bash
+sudo -u postgres createuser -d -R -S $USER
+createdb $USER
+```
 
+### ORM Model Definition
 
-## Thanks to: 
+Example of defining a model for the ORM:
+```python
+from sqlalchemy import Column, Integer, String
+
+# Import the database model
+from clicx.database import models
+
+class User(models.Model):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True)
+    username = Column(String, unique=True)
+    password = Column(String)
+```
+
+## Usage Guidelines
+
+### File Loading
+- All `.env` files in the `addons` folder will be automatically loaded
+- All `.json` files in the `addons` folder will be automatically loaded
+
+### Command Loading
+- All commands will be loaded from the `cli` directory inside the `addons` folder
+- Use `app = typer.Typer(help="Test commands")` as the variable name for proper command loading
+
+### Route Loading
+- All routes will be loaded from the `addons` folder
+- Use `router = APIRouter()` as the variable name for proper route loading
+
+## Notes
+
+- The API timeout is set to 30 seconds instead of the default 5 seconds
+- Boot time on Ubuntu is slowed by `systemd-networkd-wait-online`
+  - Possible fix: See [this Ask Ubuntu thread](https://askubuntu.com/questions/1511087/systemd-networkd-wait-online-service-timing-out-during-boot)
+
+## Acknowledgements
+
 ### Techno Tim
-For this blog: https://technotim.live/posts/cloud-init-cloud-image/
+Thanks to Techno Tim for his blog post: https://technotim.live/posts/cloud-init-cloud-image/
 
-A small ajustment to the debug section. 
-Instead of running:
-```sh
-sudo rm -f /etc/machine-id
-sudo rm -f /var/lib/dbus/machine-id
-```
-Run
-```sh  
+## Troubleshooting
+
+For issues with machine IDs when cloning VMs, use the modified approach:
+```bash
 sudo rm -f /etc/machine-id
 sudo touch /etc/machine-id
 
 sudo rm -f /var/lib/dbus/machine-id
 sudo ln -s /etc/machine-id /var/lib/dbus/machine-id
-``` 
+```
 
-This will enable the created template to generate a new machine id instead of haveing to create on manually using `sudo systemd-machine-id-setup
-`
-## Good to know:
-- Boot time on ubuntu is slowed by `systemd-networkd-wait-online` 
-    - Posible fix: https://askubuntu.com/questions/1511087/systemd-networkd-wait-online-service-timing-out-during-boot
+This ensures that each cloned VM will generate a new machine ID instead of requiring manual creation with `sudo systemd-machine-id-setup`.

@@ -18,7 +18,7 @@ mkdir -p $DIR/logs
 echo $(ls)
 
 # Execute gunicorn using the path to the virtual environment
-gunicorn clicx.cli.server:api \
+gunicorn clicx.server:create_api \
   --name $NAME \
   --workers $WORKERS \
   --worker-class $WORKER_CLASS \
@@ -27,4 +27,4 @@ gunicorn clicx.cli.server:api \
   --group=$USERNAME \
   --bind=$BIND_SUB \
   --log-level=$LOG_LEVEL \
-  --log-file=$DIR/logs/application.log
+  --log-file=$DIR/logs/app.log
