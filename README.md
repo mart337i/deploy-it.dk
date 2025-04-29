@@ -116,6 +116,11 @@ Install the package in development mode:
 pip install -e .
 ```
 
+See available commands
+```bash
+clicx --help
+```
+
 ## Database Configuration
 
 Install PostgreSQL:
