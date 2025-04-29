@@ -19,14 +19,7 @@ class SoftwareMangement(QemuAgentManagement):
         script = render('install_docker.sh')
         return self.execute_shell_script(script, node, vmid)
     
-    def pull_docker_image(self, node, vmid, image_name):
-        shell_script = render("pull_image.sh", {
-            "image_name":image_name
-        })
-        
-        return self.execute_shell_script(shell_script, node, vmid)
-
-    def start_docker_image(self, node, vmid, image_name, container_name, port_mapping="", volume_mapping="", env_vars=""):
+    def pull_docker_image(self, node, vmid, image_name, container_name, port_mapping="", volume_mapping="", env_vars=""):
         shell_script = render(
             template_name="start_docker_image.sh",
             context = {

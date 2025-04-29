@@ -98,11 +98,6 @@ def _log_error(message: str, error: Exception):
     if configuration.debug:
         rich.print(f"[red]{message}: {error}[/red]")
 
-@cli.command(help="Generate a config file with environment variables")
-def generate(output_path: str = typer.Option("clicx.conf", help="Path to output the config file")):
-    """Generate a configuration file with default environment variables."""
-    configuration.create_config(output_path)
-
 
 @cli.command(help="Show the current CLI version.")
 def version():
