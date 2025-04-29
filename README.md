@@ -94,7 +94,10 @@ poetry install
 
 ```sh
 pip install -e .
+```
 
+```sh
+clicx --help
 ```
 ## Usage
 
