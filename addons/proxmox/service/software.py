@@ -42,12 +42,13 @@ class SoftwareMangement(QemuAgentManagement):
         })
         return self.execute_shell_script(shell_script, node, vmid)
     
-    def create_proxy_conf(self, node, vmid, hostname, ip):
+    def create_proxy_conf(self, node, vmid, hostname, ip,port):
         shell_script = render(
             template_name="simple_create_proxy_conf.sh",
             context = {
             "hostname": hostname,
-            "ip": ip
+            "ip": ip,
+            "port": port
         })
         return self.execute_shell_script(shell_script, node, vmid)
     

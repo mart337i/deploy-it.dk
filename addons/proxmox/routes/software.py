@@ -64,11 +64,12 @@ def create_proxy_conf(
     node: str, 
     hostname: str, 
     ip: str, 
+    port: int,
     vmid: int = 3000,
     pve: Proxmox = Depends(get_pve_conn)
 ):
     try:
-        return pve.software.create_proxy_conf(node, vmid, hostname, ip)
+        return pve.software.create_proxy_conf(node=node, vmid=vmid, hostname=hostname, ip=ip, port=port)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create proxy configuration: {str(e)}")
 

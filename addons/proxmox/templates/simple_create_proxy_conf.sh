@@ -23,7 +23,7 @@ server {
    
     # Proxy to ubuntu-cloud backend
     location / {
-        proxy_pass http://{{ ip }}:8080;
+        proxy_pass http://{{ ip }}:{{ port }};
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
