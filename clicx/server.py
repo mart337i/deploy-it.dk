@@ -3,7 +3,7 @@ import os
 import importlib
 
 # Third-party imports
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, APIRouter
 from fastapi.routing import APIRoute
 from starlette.middleware.cors import CORSMiddleware
 import uvicorn
@@ -118,15 +118,17 @@ class API(FastAPI):
         """
         try:
             module = importlib.import_module(module_name)
-            if hasattr(module, 'router') and hasattr(module, 'dependency'):
-                dependencies = module.dependency.copy()
-                dependencies.append(Depends(dependency=log_request_info))
-                
+            if hasattr(module, 'router'):
+                if not isinstance(module.router, APIRouter):
+                    print(isinstance(module.router, APIRoute))
+                    _logger.debug(f"Failed to registre router from module: {module_name}")
+                    return
+
+                dependencies = [Depends(dependency=log_request_info)]
                 self.include_router(
                     router=module.router,
                     dependencies=dependencies
                 )
-
                 _logger.debug(f"Registered router from module: {module_name} and dependency {dependencies}")
         except ModuleNotFoundError as e:
             _logger.error(f"Module not found: {module_name}, error: {e}")
