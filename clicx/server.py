@@ -1,6 +1,8 @@
 # Standard library imports
 import os
 import importlib
+import yaml
+import string
 
 # Third-party imports
 from fastapi import Depends, FastAPI, APIRouter
@@ -11,7 +13,7 @@ import uvicorn
 # Local application imports
 from clicx.config import configuration
 from clicx.utils.middleware import log_request_info
-from clicx import VERSION
+from clicx import VERSION, project_root
 
 import logging
 _logger = logging.getLogger(__name__)
@@ -166,22 +168,22 @@ class API(FastAPI):
             factory=True
         )
 
+def load_values():
+    config_path = os.path.join(project_root, 'api_config.yaml')
+
+    with open(config_path, 'r') as file:
+        config_content = file.read()
+
+    template = string.Template(config_content)
+    substituted_content = template.safe_substitute(VERSION=VERSION)
+    config_values = yaml.safe_load(substituted_content)
+    
+    return config_values
+
 def create_api():
+    values = load_values()
     api = API(
-        title="Deploy-it API",
-        description= """
-            This REST API, built with FastAPI and Proxmoxer, automates the creation of virtual machines on a Proxmox virtualization environment for Company X. It provides endpoints to deploy, configure, and manage VMs efficiently, streamlining the provisioning process while ensuring consistency and reliability.
-        """,
-        version=VERSION,
-        license_info={
-            'name': "MIT",
-            'url' : "https://mit-license.org/"
-        },
-        contact={
-            "name": "Deploy-it.dk",
-            "url" : "https://www.Deploy-it.dk",
-            "email" : "Info@deploy-it.dk"
-        }
+        **values
     )
 
     api.configure()

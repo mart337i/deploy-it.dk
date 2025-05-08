@@ -1,0 +1,10 @@
+title: "Deploy-it API"
+description: "This REST API, built with FastAPI and Proxmoxer, automates the creation of virtual machines on a Proxmox virtualization environment for Company X. It provides endpoints to deploy, configure, and manage VMs efficiently, streamlining the provisioning process while ensuring consistency and reliability."
+version: "${VERSION}"
+license_info:
+  name: "MIT"
+  url: "https://mit-license.org/"
+contact:
+  name: "Deploy-it.dk"
+  url: "https://www.Deploy-it.dk"
+  email: "Info@deploy-it.dk"
