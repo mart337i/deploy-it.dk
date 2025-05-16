@@ -4,7 +4,7 @@ from typing import Generator, Any
 from contextlib import contextmanager
 
 class connection():
-    def __init__(self, dbname: str, user: str = 'egeskov') -> None:
+    def __init__(self, dbname: str, user: str = '$USER') -> None:
         self.dbname = dbname
         self.user = user
         self.engine = self.get_engine()
@@ -17,12 +17,12 @@ class connection():
 
 
 class Curser(connection):
-    def __init__(self, dbname: str, user: str = 'egeskov') -> None:
+    def __init__(self, dbname: str, user: str = '$USER') -> None:
         super().__init__(dbname, user)
         self.curser: Generator[Session, Any, None] = self.cr()
 
     @contextmanager
-    def cr(self) -> Generator[Session, None, None]:
+    def cr(self) -> Generator[Session]:
         session = Session(self.engine)
         try: 
             yield session
