@@ -24,7 +24,7 @@ python-dotenv = "^1.0.1"
 typer-cli = "^0.15.2"
 rich  = "^13.9.4"
 fastapi = {extras = ["standard"], version = "^0.115.11"}
-urllib3 = "^2.3.0"
+urllib3 = "^2.5.0"
 psutil = "^7.0.0"
 proxmoxer = "^2.2.0"
 cryptography = "^44.0.2"
