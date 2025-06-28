@@ -1,7 +1,7 @@
 {
     "token_name": "API-Token",
     "user": "deploy-it.dk@pam!deploy",
-    "host": "10.8.0.1",
+    "host": "5.135.170.105",
     "available_nodes": ["node1", "node2", "node3"]
 }
   
