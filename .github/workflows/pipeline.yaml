@@ -79,7 +79,7 @@ jobs:
           name: deploy-it
           file: compose.yaml
           host: deploy-it.dk
-          user: sysadmin
+          user: deploy
           ssh_key: ${{ secrets.DOCKER_SSH_KEY }}
           env_file: ./envfile
           registry_auth: true
